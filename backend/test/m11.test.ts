@@ -14,12 +14,11 @@ describe("M11: Circuit Breaker & Failover", () => {
   let fallbackSender: { id: string };
 
   beforeAll(async () => {
-    user = await prisma.user.upsert({
-      where: { email: "m11-test@example.com" },
-      update: {},
-      create: {
-        googleId: "m11-google-id",
-        email: "m11-test@example.com",
+    const testEmail = `m11-${Date.now()}@example.com`;
+    user = await prisma.user.create({
+      data: {
+        googleId: `m11-google-${Date.now()}`,
+        email: testEmail,
         name: "M11 Tester"
       }
     });

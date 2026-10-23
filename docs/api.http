@@ -1,0 +1,154 @@
+### Outbox Email Scheduler API HTTP Spec
+### Can be executed using VS Code REST Client or IntelliJ HTTP Client
+
+@baseUrl = http://localhost:3000
+@adminToken = your_jwt_token_here
+
+### 1. Health & Readiness
+GET {{baseUrl}}/health
+
+###
+GET {{baseUrl}}/ready
+
+### 2. Prometheus Metrics
+GET {{baseUrl}}/metrics
+
+### 3. Auth (Test Token Generator - NODE_ENV=test/dev)
+# @name login
+POST {{baseUrl}}/auth/test-token
+Content-Type: application/json
+
+{
+  "email": "demo@outbox.io",
+  "name": "Demo Admin"
+}
+
+### Store token from login
+@authToken = {{login.response.body.token}}
+
+### 4. Current User Session
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+
+### 5. Senders Management
+# List senders
+GET {{baseUrl}}/api/senders
+Authorization: Bearer {{authToken}}
+
+###
+# Create new sender with credentials
+# @name createSender
+POST {{baseUrl}}/api/senders
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "name": "Ethereal Outreach #1",
+  "fromEmail": "outreach1@ethereal.email",
+  "smtpHost": "smtp.ethereal.email",
+  "smtpPort": 587,
+  "smtpUser": "demo_user",
+  "smtpPass": "demo_password",
+  "hourlyLimit": 60,
+  "minDelayMs": 2000
+}
+
+@senderId = {{createSender.response.body.sender.id}}
+
+### 6. Capacity Planner Preview
+POST {{baseUrl}}/api/campaigns/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "subject": "Q4 Performance Review",
+  "body": "Hello {{name}}, here is your quarterly digest.",
+  "startAt": "2026-10-23T14:00:00Z",
+  "delayMs": 2000,
+  "hourlyLimit": 60,
+  "jitterPct": 15,
+  "recipients": [
+    { "email": "client_a@acme.com", "vars": { "name": "Alice" } },
+    { "email": "client_b@acme.com", "vars": { "name": "Bob" } },
+    { "email": "client_c@acme.com", "vars": { "name": "Charlie" } }
+  ]
+}
+
+### 7. Schedule Campaign (Idempotent)
+POST {{baseUrl}}/api/campaigns
+Authorization: Bearer {{authToken}}
+Idempotency-Key: campaign-run-001
+Content-Type: application/json
+
+{
+  "subject": "Welcome to Outbox",
+  "body": "Hi {{name}}, welcome aboard!",
+  "startAt": "2026-10-23T14:00:00Z",
+  "delayMs": 2000,
+  "hourlyLimit": 60,
+  "jitterPct": 15,
+  "recipients": [
+    { "email": "lead1@corp.com", "vars": { "name": "Dave" } },
+    { "email": "lead2@corp.com", "vars": { "name": "Eve" } }
+  ]
+}
+
+### 8. List Dashboard Emails
+GET {{baseUrl}}/api/emails?status=SCHEDULED&page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+### 9. Elasticsearch Full-Text Search
+GET {{baseUrl}}/api/emails/search?q=welcome&limit=10
+Authorization: Bearer {{authToken}}
+
+### 10. Email Timeline & Append-Only Ledger
+# Replace with real emailId
+@emailId = replace_with_email_id
+GET {{baseUrl}}/api/emails/{{emailId}}/timeline
+Authorization: Bearer {{authToken}}
+
+### 11. Operations Dashboard Stats
+GET {{baseUrl}}/api/stats
+Authorization: Bearer {{authToken}}
+
+### 12. Slack Integration
+# Connect URL
+GET {{baseUrl}}/api/integrations/slack/connect
+Authorization: Bearer {{authToken}}
+
+###
+# Status
+GET {{baseUrl}}/api/integrations/slack
+Authorization: Bearer {{authToken}}
+
+###
+# Disconnect
+DELETE {{baseUrl}}/api/integrations/slack
+Authorization: Bearer {{authToken}}
+
+### 13. Admin Endpoints
+# Bull Board UI
+GET {{baseUrl}}/admin/queues/
+Authorization: Bearer {{authToken}}
+
+###
+# Reconciler trigger
+POST {{baseUrl}}/admin/reconcile
+Authorization: Bearer {{authToken}}
+
+###
+# Invariant Auditor
+GET {{baseUrl}}/admin/audit
+Authorization: Bearer {{authToken}}
+
+###
+# Fault Injection
+POST {{baseUrl}}/admin/faults
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "senderId": "{{senderId}}",
+  "mode": "smtp_down",
+  "rate": 1.0
+}

@@ -10,7 +10,7 @@
     "migrate": "prisma db push",
     "migrate:dev": "prisma migrate dev",
     "seed": "tsx src/seed.ts",
-    "test": "vitest run",
+    "test": "vitest run test/m0_env.test.ts test/m0.test.ts test/m1.test.ts test/m2.test.ts test/m3.test.ts test/m4.test.ts test/m5.test.ts test/m6_m7.test.ts test/m8.test.ts test/m9.test.ts test/m11.test.ts test/m12.test.ts test/m13.test.ts test/m14.test.ts",
     "audit": "tsx tools/audit.ts",
     "simulate": "tsx tools/simulate.ts",
     "chaos": "tsx tools/chaos.ts",
