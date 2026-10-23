@@ -77,7 +77,8 @@ npm run verify
 
 - [x] **M0: Foundations** - Monorepo, TS strict, `docker-compose.yml` (Postgres, Redis with AOF, Elasticsearch), Zod `config/env.ts`, pino logger, `/health` and `/ready`, `core/ports.ts`, Prisma schema.
 - [x] **M1: Auth (Google OAuth & Test Bypass)** - Google OAuth code flow, JWT in httpOnly cookie + Bearer auth, `/auth/me`, `/auth/logout`, `requireAuth` middleware, test-gated bypass token.
-- [ ] **M2: Senders (Ethereal test accounts, pool & health)**
+- [x] **M2: Senders (Ethereal test accounts, pool & health)** - Sender CRUD, automated Ethereal test account generation via Nodemailer, AES-256-GCM encryption at rest for credentials, SMTP connection verify & pooling, 3-sender seed script.
+- [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)**
 - [ ] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)**
