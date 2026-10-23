@@ -1,0 +1,17 @@
+{
+  "name": "email-scheduler-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "migrate": "npm --prefix backend run migrate",
+    "seed": "npm --prefix backend run seed",
+    "dev:api": "npm --prefix backend run dev:api",
+    "dev:worker": "npm --prefix backend run dev:worker",
+    "test": "npm --prefix backend run test",
+    "audit": "npm --prefix backend run audit",
+    "simulate": "npm --prefix backend run simulate",
+    "chaos": "npm --prefix backend run chaos",
+    "load": "npm --prefix backend run load",
+    "verify": "npm --prefix backend run verify"
+  }
+}

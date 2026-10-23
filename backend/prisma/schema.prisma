@@ -1,0 +1,159 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SenderHealth {
+  HEALTHY
+  DEGRADED
+  OPEN
+}
+
+enum EmailStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum EventType {
+  PLANNED
+  ENQUEUED
+  RESCHEDULED
+  SLOT_RESERVED
+  CLAIMED
+  SENT
+  SMTP_ERROR
+  FAILOVER
+  RECOVERED
+  FAILED
+}
+
+enum SlackStatus {
+  CONNECTED
+  DISCONNECTED
+}
+
+model User {
+  id               String            @id @default(uuid())
+  googleId         String            @unique @map("google_id")
+  email            String            @unique
+  name             String
+  avatarUrl        String?           @map("avatar_url")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  senders          Sender[]
+  campaigns        Campaign[]
+  emails           Email[]
+  slackIntegration SlackIntegration?
+
+  @@map("users")
+}
+
+model Sender {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  name            String
+  fromEmail       String       @map("from_email")
+  smtpHost        String       @map("smtp_host")
+  smtpPort        Int          @map("smtp_port")
+  smtpUser        String       @map("smtp_user")
+  smtpPassEnc     String       @map("smtp_pass_enc")
+  hourlyLimit     Int?         @map("hourly_limit")
+  minDelayMs      Int?         @map("min_delay_ms")
+  isActive        Boolean      @default(true) @map("is_active")
+  health          SenderHealth @default(HEALTHY)
+  healthChangedAt DateTime     @default(now()) @map("health_changed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails          Email[]
+  events          EmailEvent[]
+
+  @@map("senders")
+}
+
+model Campaign {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  subject         String
+  bodyTemplate    String       @map("body_template")
+  startAt         DateTime     @map("start_at")
+  delayMs         Int          @map("delay_ms")
+  hourlyLimit     Int          @map("hourly_limit")
+  total           Int
+  idempotencyKey  String?      @map("idempotency_key")
+  plannedFinishAt DateTime?    @map("planned_finish_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails          Email[]
+  events          EmailEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@map("campaigns")
+}
+
+model Email {
+  id          String       @id @default(uuid())
+  campaignId  String       @map("campaign_id")
+  userId      String       @map("user_id")
+  senderId    String       @map("sender_id")
+  toEmail     String       @map("to_email")
+  subject     String
+  body        String
+  seq         Int
+  plannedAt   DateTime     @map("planned_at")
+  scheduledAt DateTime     @map("scheduled_at")
+  status      EmailStatus  @default(SCHEDULED)
+  attempts    Int          @default(0)
+  messageId   String?      @map("message_id")
+  previewUrl  String?      @map("preview_url")
+  lastError   String?      @map("last_error")
+  claimedAt   DateTime?    @map("claimed_at")
+  sentAt      DateTime?    @map("sent_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender      Sender       @relation(fields: [senderId], references: [id])
+  events      EmailEvent[]
+
+  @@unique([campaignId, toEmail])
+  @@unique([senderId, plannedAt])
+  @@index([status, scheduledAt])
+  @@index([userId, status, scheduledAt])
+  @@map("emails")
+}
+
+model EmailEvent {
+  id         BigInt    @id @default(autoincrement())
+  emailId    String    @map("email_id")
+  campaignId String    @map("campaign_id")
+  senderId   String    @map("sender_id")
+  type       EventType
+  at         DateTime  @default(now()) @db.Timestamptz
+  data       Json
+  email      Email     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sender     Sender    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([emailId, id])
+  @@index([senderId, type, at])
+  @@map("email_events")
+}
+
+model SlackIntegration {
+  id            String      @id @default(uuid())
+  userId        String      @unique @map("user_id")
+  teamName      String?     @map("team_name")
+  channel       String?
+  webhookUrlEnc String      @map("webhook_url_enc")
+  status        SlackStatus @default(CONNECTED)
+  connectedAt   DateTime    @default(now()) @map("connected_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("slack_integrations")
+}
