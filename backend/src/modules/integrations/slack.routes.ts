@@ -1,0 +1,155 @@
+import { Router, Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import { requireAuth } from "../auth/auth.middleware.js";
+import { prisma } from "../../infra/prisma.js";
+import { encrypt } from "../../utils/crypto.js";
+import { env } from "../../config/env.js";
+import { logger } from "../../config/logger.js";
+
+export const slackRouter = Router();
+
+slackRouter.use(requireAuth);
+
+/**
+ * Initiate Slack OAuth connect flow.
+ * GET /api/integrations/slack/connect
+ */
+slackRouter.get("/connect", (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  // Sign state token with user ID and 10m expiry to prevent CSRF
+  const state = jwt.sign({ userId, nonce: Math.random().toString(36) }, env.JWT_SECRET, {
+    expiresIn: "10m"
+  });
+
+  const clientId = env.SLACK_CLIENT_ID || "mock_slack_client_id";
+  const redirectUri = encodeURIComponent(
+    env.SLACK_REDIRECT_URI || "http://localhost:3000/api/integrations/slack/callback"
+  );
+  const scope = encodeURIComponent("incoming-webhook");
+
+  const authorizeUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+
+  return res.status(200).json({
+    authorizeUrl,
+    state
+  });
+});
+
+/**
+ * Slack OAuth callback endpoint.
+ * Exchanges authorization code at oauth.v2.access, encrypts webhook, and marks CONNECTED.
+ * GET /api/integrations/slack/callback?code=&state=
+ */
+slackRouter.get("/callback", async (req: Request, res: Response) => {
+  const { code, state } = req.query as { code?: string; state?: string };
+
+  if (!code || !state) {
+    return res.status(400).json({ error: "Missing code or state" });
+  }
+
+  try {
+    const decoded = jwt.verify(state, env.JWT_SECRET) as { userId: string };
+    const userId = decoded.userId;
+
+    let webhookUrl: string;
+    let channel: string;
+    let teamName: string;
+
+    // Test mode bypass for CI/testing without external Slack credentials
+    if (process.env.NODE_ENV === "test" && code.startsWith("test_code_")) {
+      webhookUrl = "http://localhost:9999/fake-slack-webhook";
+      channel = "#outbox-alerts";
+      teamName = "Test Workspace";
+    } else {
+      if (!env.SLACK_CLIENT_ID || !env.SLACK_CLIENT_SECRET) {
+        return res.status(400).json({
+          error: "Slack credentials (SLACK_CLIENT_ID / SLACK_CLIENT_SECRET) not configured"
+        });
+      }
+
+      const params = new URLSearchParams({
+        client_id: env.SLACK_CLIENT_ID,
+        client_secret: env.SLACK_CLIENT_SECRET,
+        code,
+        redirect_uri: env.SLACK_REDIRECT_URI
+      });
+
+      const tokenRes = await fetch("https://slack.com/api/oauth.v2.access", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      });
+      const data: any = await tokenRes.json();
+
+      if (!data.ok) {
+        return res.status(400).json({ error: data.error || "Slack OAuth failed" });
+      }
+
+      webhookUrl = data.incoming_webhook.url;
+      channel = data.incoming_webhook.channel;
+      teamName = data.team?.name || "Slack Team";
+    }
+
+    const encryptedWebhook = encrypt(webhookUrl);
+
+    await prisma.slackIntegration.upsert({
+      where: { userId },
+      update: {
+        channel,
+        webhookUrlEnc: encryptedWebhook,
+        status: "CONNECTED"
+      },
+      create: {
+        userId,
+        teamName,
+        channel,
+        webhookUrlEnc: encryptedWebhook,
+        status: "CONNECTED"
+      }
+    });
+
+    return res.status(200).json({
+      message: "Slack integration connected successfully",
+      channel,
+      status: "CONNECTED"
+    });
+  } catch (err) {
+    (req.log || logger).error({ err }, "Slack OAuth callback failed");
+    return res.status(400).json({ error: "Invalid or expired state" });
+  }
+});
+
+/**
+ * Get current user Slack integration status.
+ * GET /api/integrations/slack
+ */
+slackRouter.get("/", async (req: Request, res: Response) => {
+  const integration = await prisma.slackIntegration.findUnique({
+    where: { userId: req.user!.id },
+    select: {
+      teamName: true,
+      channel: true,
+      status: true,
+      connectedAt: true,
+      updatedAt: true
+    }
+  });
+
+  return res.status(200).json({
+    connected: integration?.status === "CONNECTED",
+    integration: integration || null
+  });
+});
+
+/**
+ * Disconnect Slack integration.
+ * DELETE /api/integrations/slack
+ */
+slackRouter.delete("/", async (req: Request, res: Response) => {
+  await prisma.slackIntegration.updateMany({
+    where: { userId: req.user!.id },
+    data: { status: "DISCONNECTED" }
+  });
+
+  return res.status(200).json({ message: "Slack integration disconnected" });
+});

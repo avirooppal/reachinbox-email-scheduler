@@ -13,6 +13,7 @@ import { sendersRouter } from "./modules/senders/senders.routes.js";
 import { emailsRouter } from "./modules/emails/emails.routes.js";
 import { campaignsRouter } from "./modules/campaigns/campaigns.routes.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
+import { slackRouter } from "./modules/integrations/slack.routes.js";
 
 export const app = express();
 
@@ -32,6 +33,7 @@ app.use("/auth", authRouter);
 app.use("/api/senders", sendersRouter);
 app.use("/api/emails", emailsRouter);
 app.use("/api/campaigns", campaignsRouter);
+app.use("/api/integrations/slack", slackRouter);
 app.use("/admin", adminRouter);
 
 

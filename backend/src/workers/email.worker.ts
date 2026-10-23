@@ -11,6 +11,8 @@ import { handleSend } from "../core/send-handler.js";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
 import { CircuitBreaker } from "../core/breaker.js";
+import { notificationQueue } from "../queue/notification.worker.js";
+import { searchIndexQueue } from "../queue/search-index.worker.js";
 import { SenderRecord } from "../core/ports.js";
 
 export function createEmailWorker(workerId = `worker-${process.pid}`): Worker<EmailJobData> {
@@ -43,10 +45,23 @@ export function createEmailWorker(workerId = `worker-${process.pid}`): Worker<Em
         maxAttempts: env.JOB_ATTEMPTS,
         rateLimitMode: env.RATE_LIMIT_MODE,
         onLimitReached: async (senderId, limit, count) => {
-          jobLogger.warn({ senderId, limit, count }, "Sender reached hourly rate limit");
+          jobLogger.warn({ senderId, limit, count }, "Sender reached hourly rate limit; enqueueing notification");
+          const email = await prisma.email.findUnique({
+            where: { id: emailId },
+            select: { userId: true }
+          });
+          if (email) {
+            await notificationQueue.add("slack-limit-alert", {
+              userId: email.userId,
+              senderId,
+              limit,
+              count
+            }).catch(() => {});
+          }
         },
         onEmailSent: async (sentEmailId) => {
-          jobLogger.info({ sentEmailId }, "Email successfully dispatched");
+          jobLogger.info({ sentEmailId }, "Email successfully dispatched; updating search index");
+          searchIndexQueue.add("index-email", { emailId: sentEmailId }).catch(() => {});
         }
       });
 
