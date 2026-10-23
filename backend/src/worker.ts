@@ -3,6 +3,7 @@ import { logger } from "./config/logger.js";
 import { prisma } from "./infra/prisma.js";
 import { redis } from "./infra/redis.js";
 import { createEmailWorker } from "./workers/email.worker.js";
+import { reconcileQueue } from "./queue/reconciler.js";
 
 const workerId = `worker-${process.pid}`;
 logger.info(
@@ -14,7 +15,13 @@ logger.info(
   "Email Worker Service booting up..."
 );
 
+// Run boot reconciler before processing
+await reconcileQueue().catch((err) => {
+  logger.error({ err }, "Boot reconciler encountered an error");
+});
+
 const worker = createEmailWorker(workerId);
+
 
 const shutdown = async (signal: string) => {
   logger.info({ signal }, "Shutting down worker service gracefully...");

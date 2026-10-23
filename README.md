@@ -83,7 +83,8 @@ npm run verify
 - [x] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)** - `POST /api/campaigns/preview` and `POST /api/campaigns` supporting JSON & CSV upload, sender advisory lock serialization, chunked insert, BullMQ delayed job enqueue (1:1 matching), `Idempotency-Key` protection.
 - [x] **M6: Send Handler & BullMQ Worker (Two-layer idempotency, atomic DB claim, error classification)** - Pure domain `handleSend` function behind ports, atomic `UPDATE ... RETURNING` DB claim, deterministic Message-ID, transient/permanent SMTP classification.
 - [x] **M7: Atomic Lua Limiter (Fixed & sliding strategies, rank overflow rescheduling, no sleep)** - Atomic Redis Lua script with external `now`, rank-based overflow rescheduling without dropping jobs or burning attempts, `DelayedError` integration.
-- [ ] **M8: Persistence & Boot Reconciler (AOF recovery, stale PROCESSING reclamation)**
+- [x] **M8: Persistence & Boot Reconciler (AOF recovery, stale PROCESSING reclamation)** - Boot-time and on-demand `POST /admin/reconcile` reconciler, re-enqueues missing BullMQ jobs from PostgreSQL, reclaims abandoned stale `PROCESSING` rows with `RECOVERED` event.
+- [ ] **M9: Invariant Auditor (7 mathematical invariants, corruption proof)**
 - [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)**
 - [ ] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)**
