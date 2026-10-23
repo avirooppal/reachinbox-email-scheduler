@@ -2,12 +2,19 @@ import { PrismaClient } from "@prisma/client";
 import { Clock, Limiter, Transport, EventLog, SenderRecord } from "./ports.js";
 import { classifySmtpError } from "./errors.js";
 
+export interface CircuitBreakerPort {
+  recordFailure(senderId: string, errorReason: string): Promise<boolean>;
+  recordSuccess(senderId: string): Promise<void>;
+  checkHealth(senderId: string): Promise<"HEALTHY" | "DEGRADED" | "OPEN">;
+}
+
 export interface SendHandlerContext {
   clock: Clock;
   prisma: PrismaClient;
   limiter: Limiter;
   transportFactory: (sender: SenderRecord) => Promise<Transport>;
   eventLog: EventLog;
+  breaker?: CircuitBreakerPort;
   workerId?: string;
   maxAttempts?: number;
   rateLimitMode?: "fixed" | "sliding";
@@ -65,31 +72,70 @@ export async function handleSend(
     return { outcome: "ALREADY_TERMINAL", status: email.status };
   }
 
-  const sender = email.sender;
+  let sender = email.sender;
   const campaign = email.campaign;
 
-  // 2. Check Sender Health (Circuit Breaker status)
-  if (sender.health === "OPEN") {
-    // If sender is OPEN, reschedule 60 seconds into the future
-    const retryAt = nowMs + 60000;
-    await prisma.$transaction(async (tx) => {
-      await tx.email.update({
-        where: { id: emailId },
-        data: { scheduledAt: new Date(retryAt) }
-      });
-      await eventLog.append(tx, {
-        emailId,
-        campaignId: campaign.id,
-        senderId: sender.id,
-        type: "RESCHEDULED",
-        data: {
-          from: email.scheduledAt.toISOString(),
-          to: new Date(retryAt).toISOString(),
-          reason: "SENDER_OPEN"
-        }
-      });
+  // 2. Check Sender Health (Circuit Breaker status) & Failover
+  let currentHealth = sender.health;
+  if (ctx.breaker) {
+    currentHealth = await ctx.breaker.checkHealth(sender.id);
+  }
+
+  if (currentHealth === "OPEN") {
+    // Attempt failover to another healthy sender belonging to user
+    const siblingSenders = await prisma.sender.findMany({
+      where: {
+        userId: email.userId,
+        id: { not: sender.id },
+        isActive: true,
+        health: "HEALTHY"
+      }
     });
-    return { outcome: "RESCHEDULED", retryAt, reason: "SENDER_OPEN" };
+
+    if (siblingSenders.length > 0) {
+      // Pick first healthy sibling
+      const failoverSender = siblingSenders[0]!;
+      await prisma.$transaction(async (tx) => {
+        await tx.email.update({
+          where: { id: emailId },
+          data: { senderId: failoverSender.id }
+        });
+        await eventLog.append(tx, {
+          emailId,
+          campaignId: campaign.id,
+          senderId: failoverSender.id,
+          type: "FAILOVER",
+          data: {
+            fromSenderId: sender.id,
+            toSenderId: failoverSender.id,
+            reason: "ORIGINAL_SENDER_OPEN"
+          }
+        });
+      });
+      // Switch active sender for this send execution
+      sender = failoverSender;
+    } else {
+      // No healthy fallback sender available: reschedule past cooldown
+      const retryAt = nowMs + 60000;
+      await prisma.$transaction(async (tx) => {
+        await tx.email.update({
+          where: { id: emailId },
+          data: { scheduledAt: new Date(retryAt) }
+        });
+        await eventLog.append(tx, {
+          emailId,
+          campaignId: campaign.id,
+          senderId: sender.id,
+          type: "RESCHEDULED",
+          data: {
+            from: email.scheduledAt.toISOString(),
+            to: new Date(retryAt).toISOString(),
+            reason: "SENDER_OPEN"
+          }
+        });
+      });
+      return { outcome: "RESCHEDULED", retryAt, reason: "SENDER_OPEN" };
+    }
   }
 
   // 3. Rate Limit & Gap Check via Atomic Lua Limiter
@@ -224,6 +270,10 @@ export async function handleSend(
       });
     });
 
+    if (ctx.breaker) {
+      await ctx.breaker.recordSuccess(sender.id);
+    }
+
     if (onEmailSent) {
       onEmailSent(emailId).catch(() => {});
     }
@@ -237,6 +287,10 @@ export async function handleSend(
     // 7. Error Classification & Handling
     const classification = classifySmtpError(err);
     const isLastAttempt = claimResult.attempts >= maxAttempts;
+
+    if (ctx.breaker) {
+      await ctx.breaker.recordFailure(sender.id, classification.message);
+    }
 
     await prisma.$transaction(async (tx) => {
       await eventLog.append(tx, {

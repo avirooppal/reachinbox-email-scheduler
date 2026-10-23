@@ -10,9 +10,12 @@ import { decrypt } from "../utils/crypto.js";
 import { handleSend } from "../core/send-handler.js";
 import { env } from "../config/env.js";
 import { logger } from "../config/logger.js";
+import { CircuitBreaker } from "../core/breaker.js";
 import { SenderRecord } from "../core/ports.js";
 
 export function createEmailWorker(workerId = `worker-${process.pid}`): Worker<EmailJobData> {
+  const breaker = new CircuitBreaker(redis, prisma);
+
   const worker = new Worker<EmailJobData>(
     EMAIL_QUEUE_NAME,
     async (job: Job<EmailJobData>, token?: string) => {
@@ -35,6 +38,7 @@ export function createEmailWorker(workerId = `worker-${process.pid}`): Worker<Em
           });
         },
         eventLog,
+        breaker,
         workerId,
         maxAttempts: env.JOB_ATTEMPTS,
         rateLimitMode: env.RATE_LIMIT_MODE,

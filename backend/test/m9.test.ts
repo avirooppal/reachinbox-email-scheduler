@@ -296,7 +296,7 @@ describe("Milestone 9: Invariant Auditor", () => {
 
   it("GET /admin/audit responds with full audit report JSON and formatted string", async () => {
     const res = await request(app)
-      .get("/admin/audit")
+      .get(`/admin/audit?campaignId=${campaignId}`)
       .set("Authorization", `Bearer ${authToken}`);
 
     expect(res.status).toBe(200);
