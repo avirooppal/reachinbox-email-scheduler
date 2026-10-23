@@ -10,6 +10,7 @@ import { redis } from "./infra/redis.js";
 import { esClient } from "./infra/elasticsearch.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { sendersRouter } from "./modules/senders/senders.routes.js";
+import { emailsRouter } from "./modules/emails/emails.routes.js";
 
 export const app = express();
 
@@ -27,6 +28,8 @@ app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 // Mount routes
 app.use("/auth", authRouter);
 app.use("/api/senders", sendersRouter);
+app.use("/api/emails", emailsRouter);
+
 
 
 // Request correlation ID and logger middleware
