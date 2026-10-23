@@ -8,6 +8,7 @@ import { logger, createChildLogger } from "./config/logger.js";
 import { prisma } from "./infra/prisma.js";
 import { redis } from "./infra/redis.js";
 import { esClient } from "./infra/elasticsearch.js";
+import { authRouter } from "./modules/auth/auth.routes.js";
 
 export const app = express();
 
@@ -21,6 +22,9 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+// Mount auth module
+app.use("/auth", authRouter);
 
 // Request correlation ID and logger middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

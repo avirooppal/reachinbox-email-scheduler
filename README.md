@@ -76,7 +76,7 @@ npm run verify
 ## 3. Milestones & Implementation Progress
 
 - [x] **M0: Foundations** - Monorepo, TS strict, `docker-compose.yml` (Postgres, Redis with AOF, Elasticsearch), Zod `config/env.ts`, pino logger, `/health` and `/ready`, `core/ports.ts`, Prisma schema.
-- [ ] **M1: Auth (Google OAuth & Test Bypass)**
+- [x] **M1: Auth (Google OAuth & Test Bypass)** - Google OAuth code flow, JWT in httpOnly cookie + Bearer auth, `/auth/me`, `/auth/logout`, `requireAuth` middleware, test-gated bypass token.
 - [ ] **M2: Senders (Ethereal test accounts, pool & health)**
 - [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)**
