@@ -84,7 +84,8 @@ npm run verify
 - [x] **M6: Send Handler & BullMQ Worker (Two-layer idempotency, atomic DB claim, error classification)** - Pure domain `handleSend` function behind ports, atomic `UPDATE ... RETURNING` DB claim, deterministic Message-ID, transient/permanent SMTP classification.
 - [x] **M7: Atomic Lua Limiter (Fixed & sliding strategies, rank overflow rescheduling, no sleep)** - Atomic Redis Lua script with external `now`, rank-based overflow rescheduling without dropping jobs or burning attempts, `DelayedError` integration.
 - [x] **M8: Persistence & Boot Reconciler (AOF recovery, stale PROCESSING reclamation)** - Boot-time and on-demand `POST /admin/reconcile` reconciler, re-enqueues missing BullMQ jobs from PostgreSQL, reclaims abandoned stale `PROCESSING` rows with `RECOVERED` event.
-- [ ] **M9: Invariant Auditor (7 mathematical invariants, corruption proof)**
+- [x] **M9: Invariant Auditor (7 mathematical invariants, corruption proof)** - CLI `npm run audit` and `GET /admin/audit` asserting: at-most-once delivery, hourly rate limits, minimum gaps, zero lost emails, no early sends, monotonic reschedule order, and store agreement. Proven against corrupted datasets.
+- [ ] **M10: Simulator, Chaos & Load Evidence (`tools/simulate.ts`, `tools/chaos.ts`, `tools/load.ts`)**
 - [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)**
 - [ ] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)**

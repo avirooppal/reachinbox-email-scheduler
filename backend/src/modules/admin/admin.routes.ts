@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../auth/auth.middleware.js";
 import { reconcileQueue } from "../../queue/reconciler.js";
+import { runAudit, formatAuditReport } from "../../../tools/audit.js";
 import { logger } from "../../config/logger.js";
 
 export const adminRouter = Router();
@@ -27,4 +28,25 @@ adminRouter.post("/reconcile", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Reconciliation failed" });
   }
 });
+
+/**
+ * Run invariant auditor on-demand.
+ */
+adminRouter.get("/audit", async (req: Request, res: Response) => {
+  try {
+    const campaignId = (req.query.campaignId as string) || undefined;
+    const isDrained = req.query.isDrained === "true";
+    const report = await runAudit(campaignId, isDrained);
+    const textReport = formatAuditReport(report);
+
+    return res.status(200).json({
+      ...report,
+      formatted: textReport
+    });
+  } catch (err) {
+    (req.log || logger).error({ err }, "Admin audit failed");
+    return res.status(500).json({ error: "Audit failed" });
+  }
+});
+
 
