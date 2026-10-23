@@ -80,7 +80,8 @@ npm run verify
 - [x] **M2: Senders (Ethereal test accounts, pool & health)** - Sender CRUD, automated Ethereal test account generation via Nodemailer, AES-256-GCM encryption at rest for credentials, SMTP connection verify & pooling, 3-sender seed script.
 - [x] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)** - Append-only `email_events` with PostgreSQL trigger blocking UPDATE/DELETE, atomic `withLedger` transactional helper, `GET /api/emails/:id/timeline` with plain-English summary.
 - [x] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)** - Pure timeline allocator, round-robin across healthy senders, clock-hour cap & min-gap enforcement, seeded jitter, preview calculations, fast-check property verified (10k emails in <1s).
-- [ ] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)**
+- [x] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)** - `POST /api/campaigns/preview` and `POST /api/campaigns` supporting JSON & CSV upload, sender advisory lock serialization, chunked insert, BullMQ delayed job enqueue (1:1 matching), `Idempotency-Key` protection.
+- [ ] **M6: Send Handler & BullMQ Worker (Two-layer idempotency, atomic DB claim, error classification)**
 - [ ] **M3: Event Ledger (Append-only ledger, DB trigger guard, timeline)**
 - [ ] **M4: Pure Capacity Planner (First-fit, advisory lock, deterministic jitter, fast-check tests)**
 - [ ] **M5: Schedule and Preview APIs (Chunked transaction, idempotency key)**
