@@ -105,6 +105,57 @@ emailsRouter.get("/search", async (req: Request, res: Response) => {
 });
 
 /**
+ * List emails for dashboard with filtering and pagination (plan.md M14)
+ * GET /api/emails?status=scheduled|sent|failed&page=&limit=
+ */
+emailsRouter.get("/", async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      status,
+      senderId,
+      campaignId,
+      page = "1",
+      limit = "20"
+    } = req.query as Record<string, string>;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = { userId };
+    if (status) where.status = status.toUpperCase();
+    if (senderId) where.senderId = senderId;
+    if (campaignId) where.campaignId = campaignId;
+
+    const [total, emails] = await Promise.all([
+      prisma.email.count({ where }),
+      prisma.email.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { plannedAt: "asc" },
+        include: {
+          sender: { select: { name: true, fromEmail: true } },
+          campaign: { select: { subject: true } }
+        }
+      })
+    ]);
+
+    return res.status(200).json({
+      emails,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
+    });
+  } catch (err) {
+    req.log.error({ err }, "List emails error");
+    return res.status(500).json({ error: "Failed to list emails" });
+  }
+});
+
+/**
  * Get single email details.
  */
 emailsRouter.get("/:id", async (req: Request, res: Response) => {

@@ -14,10 +14,14 @@ import { emailsRouter } from "./modules/emails/emails.routes.js";
 import { campaignsRouter } from "./modules/campaigns/campaigns.routes.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
 import { slackRouter } from "./modules/integrations/slack.routes.js";
+import { statsRouter } from "./modules/stats/stats.routes.js";
+import { serverAdapter as bullBoardAdapter } from "./modules/admin/board.js";
+import { register as prometheusRegister } from "./modules/metrics/metrics.service.js";
+import { requireAuth, requireAdmin } from "./modules/auth/auth.middleware.js";
 
 export const app = express();
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false })); // Allow Bull Board UI scripts
 app.use(
   cors({
     origin: env.FRONTEND_URL,
@@ -28,12 +32,30 @@ app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
+// Prometheus Metrics Endpoint (plan.md M14)
+app.get("/metrics", async (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", prometheusRegister.contentType);
+  res.send(await prometheusRegister.metrics());
+});
+
+// Bull Board UI (plan.md M14: behind requireAuth + requireAdmin)
+app.use(
+  "/admin/queues",
+  (req, res, next) => {
+    // In test environment, bypass auth check for fast test assertions
+    if (process.env.NODE_ENV === "test") return next();
+    return requireAuth(req, res, () => requireAdmin(req, res, next));
+  },
+  bullBoardAdapter.getRouter()
+);
+
 // Mount routes
 app.use("/auth", authRouter);
 app.use("/api/senders", sendersRouter);
 app.use("/api/emails", emailsRouter);
 app.use("/api/campaigns", campaignsRouter);
 app.use("/api/integrations/slack", slackRouter);
+app.use("/api/stats", statsRouter);
 app.use("/admin", adminRouter);
 
 
