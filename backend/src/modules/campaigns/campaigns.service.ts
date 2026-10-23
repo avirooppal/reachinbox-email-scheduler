@@ -2,6 +2,7 @@ import { prisma } from "../../infra/prisma.js";
 import { allocate, PlannerSender } from "../../core/planner/allocator.js";
 import { preview, PreviewResult } from "../../core/planner/preview.js";
 import { enqueueBulkEmailJobs } from "../../adapters/queue.bullmq.js";
+import { searchIndexQueue } from "../../queue/search-index.worker.js";
 import { env } from "../../config/env.js";
 
 export interface RecipientInput {
@@ -340,6 +341,13 @@ export class CampaignsService {
         data: chunk
       });
     }
+
+    // Enqueue search indexing jobs asynchronously
+    const indexJobs = plannedResult.insertedEmails.map((e) => ({
+      name: "index-email",
+      data: { emailId: e.id }
+    }));
+    searchIndexQueue.addBulk(indexJobs).catch(() => {});
 
     return {
       campaignId: plannedResult.campaign.id,
