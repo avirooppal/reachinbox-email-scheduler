@@ -1,4 +1,5 @@
 import { prisma } from "../../infra/prisma.js";
+import { SendersService } from "../senders/senders.service.js";
 import { allocate, PlannerSender } from "../../core/planner/allocator.js";
 import { preview, PreviewResult } from "../../core/planner/preview.js";
 import { enqueueBulkEmailJobs } from "../../adapters/queue.bullmq.js";
@@ -68,13 +69,18 @@ export class CampaignsService {
     }
 
     // Load user's healthy senders
-    const dbSenders = await prisma.sender.findMany({
+    let dbSenders = await prisma.sender.findMany({
       where: {
         userId,
         isActive: true,
         ...(input.senderId ? { id: input.senderId } : {})
       }
     });
+
+    if (dbSenders.length === 0) {
+      const defaultSender = await SendersService.createEtherealSender(userId, "Default Ethereal Sender");
+      dbSenders = [defaultSender as any];
+    }
 
     const senders: PlannerSender[] = dbSenders.map((s) => ({
       id: s.id,
@@ -165,13 +171,18 @@ export class CampaignsService {
       throw new Error("No valid recipients provided");
     }
 
-    const dbSenders = await prisma.sender.findMany({
+    let dbSenders = await prisma.sender.findMany({
       where: {
         userId,
         isActive: true,
         ...(input.senderId ? { id: input.senderId } : {})
       }
     });
+
+    if (dbSenders.length === 0) {
+      const defaultSender = await SendersService.createEtherealSender(userId, "Default Ethereal Sender");
+      dbSenders = [defaultSender as any];
+    }
 
     const senders: PlannerSender[] = dbSenders.map((s) => ({
       id: s.id,

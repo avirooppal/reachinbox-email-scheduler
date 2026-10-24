@@ -62,7 +62,7 @@ export const ComposePage: React.FC = () => {
           ? `Campaign scheduled for ${sendAt.toLocaleTimeString()} (${res.accepted} emails)`
           : `Campaign started! ${res.accepted} emails enqueued`
       );
-      navigate(sendAt ? "/scheduled" : "/sent");
+      navigate("/scheduled");
     },
     onError: (err: Error) => {
       toast.error(`Failed to schedule campaign: ${err.message}`);

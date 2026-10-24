@@ -37,7 +37,8 @@ export const EmailList: React.FC<EmailListProps> = ({ view }) => {
         page,
         limit: 25
       }),
-    staleTime: 5000
+    staleTime: 2000,
+    refetchInterval: 3000
   });
 
   const starMutation = useMutation({

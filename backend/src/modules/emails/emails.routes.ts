@@ -169,9 +169,9 @@ emailsRouter.get("/", async (req: Request, res: Response) => {
     if (status) {
       const upper = status.toUpperCase();
       if (upper === "SCHEDULED") {
-        where.status = "SCHEDULED";
+        where.status = { in: ["SCHEDULED", "PROCESSING"] };
       } else if (upper === "SENT") {
-        where.status = "SENT";
+        where.status = { in: ["SENT", "DELIVERED"] };
       } else if (upper === "FAILED") {
         where.status = "FAILED";
       } else {
