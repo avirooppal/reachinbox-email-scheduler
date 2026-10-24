@@ -38,8 +38,8 @@ services:
       - key: ENABLE_FAULT_INJECTION
         value: "false"
       - key: GOOGLE_CLIENT_ID
-        value: 997049960406-p2snvlv8sct3bfkj56qjcpanrvfqfc47.apps.googleusercontent.com
+        sync: false
       - key: GOOGLE_CLIENT_SECRET
-        value: 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
+        sync: false
       - key: ADMIN_EMAILS
         value: demo@example.com
