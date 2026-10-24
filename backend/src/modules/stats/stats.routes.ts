@@ -53,7 +53,7 @@ statsRouter.get("/", async (req: Request, res: Response) => {
           ...s,
           currentHourSent,
           hourlyLimit: s.hourlyLimit,
-          remainingCapacity: Math.max(0, s.hourlyLimit - currentHourSent)
+          remainingCapacity: Math.max(0, (s.hourlyLimit ?? 0) - currentHourSent)
         };
       })
     );

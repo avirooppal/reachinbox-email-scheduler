@@ -1,8 +1,9 @@
 import { Router, Request, Response } from "express";
 import { requireAuth, requireAdmin } from "../auth/auth.middleware.js";
 import { reconcileQueue } from "../../queue/reconciler.js";
-import { runAudit, formatAuditReport } from "../../../tools/audit.js";
+import { runAudit, formatAuditReport } from "../../core/audit.js";
 import { logger } from "../../config/logger.js";
+import { env } from "../../config/env.js";
 
 export const adminRouter = Router();
 
@@ -24,6 +25,10 @@ import { prisma } from "../../infra/prisma.js";
  * POST /admin/faults { senderId, mode: "smtp_down" | "slow" | "flaky", rate }
  */
 adminRouter.post("/faults", async (req: Request, res: Response) => {
+  if (env.NODE_ENV === "production" || !env.ENABLE_FAULT_INJECTION) {
+    return res.status(403).json({ error: "Fault injection is disabled in this environment" });
+  }
+
   try {
     const { senderId, mode, rate = 1.0 } = req.body;
     if (!senderId) {

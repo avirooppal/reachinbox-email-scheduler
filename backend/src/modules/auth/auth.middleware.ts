@@ -7,7 +7,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
-  googleId: string;
+  googleId: string | null;
 }
 
 declare global {

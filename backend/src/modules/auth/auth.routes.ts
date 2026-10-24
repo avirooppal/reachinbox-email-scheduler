@@ -5,8 +5,11 @@ import { requireAuth } from "./auth.middleware.js";
 import { env } from "../../config/env.js";
 import { prisma } from "../../infra/prisma.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
+import { createAuthRateLimiter } from "./rate-limiter.js";
 
 export const authRouter = Router();
+
+const authRateLimiter = createAuthRateLimiter({ windowSeconds: 60, maxRequests: 10 });
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -22,7 +25,7 @@ const loginSchema = z.object({
 /**
  * Register with email and password
  */
-authRouter.post("/register", async (req: Request, res: Response) => {
+authRouter.post("/register", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const parseResult = registerSchema.safeParse(req.body);
     if (!parseResult.success) {
@@ -82,7 +85,7 @@ authRouter.post("/register", async (req: Request, res: Response) => {
 /**
  * Login with email and password
  */
-authRouter.post("/login", async (req: Request, res: Response) => {
+authRouter.post("/login", authRateLimiter, async (req: Request, res: Response) => {
   try {
     const parseResult = loginSchema.safeParse(req.body);
     if (!parseResult.success) {
@@ -182,7 +185,7 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    return res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    return res.redirect(`${env.FRONTEND_URL}/scheduled`);
   } catch (err) {
     req.log?.error({ err }, "Google OAuth callback error");
     return res.status(500).json({ error: "Failed to authenticate with Google" });
@@ -212,12 +215,12 @@ authRouter.post("/logout", (_req: Request, res: Response) => {
 
 /**
  * TEST-ONLY GATED AUTH BYPASS
- * STRICTLY disabled unless NODE_ENV === 'test'.
- * Creates or gets a test user and returns session cookie + bearer token.
+ * STRICTLY disabled in production and only active when NODE_ENV === 'test'.
+ * Refuses execution if NODE_ENV is production.
  */
 authRouter.post("/test-token", async (req: Request, res: Response) => {
-  if (process.env.NODE_ENV !== "test") {
-    return res.status(403).json({ error: "Test authentication is disabled in non-test environments" });
+  if (env.NODE_ENV === "production" || process.env.NODE_ENV !== "test") {
+    return res.status(403).json({ error: "Test authentication is disabled in production environments" });
   }
 
   const email = (req.body?.email as string) || "test@example.com";

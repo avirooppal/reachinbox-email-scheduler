@@ -17,6 +17,6 @@
     "alwaysStrict": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "tools/**/*", "test/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

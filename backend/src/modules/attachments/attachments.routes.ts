@@ -4,14 +4,30 @@ import path from "path";
 import fs from "fs";
 import { requireAuth } from "../auth/auth.middleware.js";
 import { prisma } from "../../infra/prisma.js";
+import { env } from "../../config/env.js";
 
 export const attachmentsRouter = Router();
 
 // Ensure upload directory exists
-const uploadDir = path.resolve(process.cwd(), "uploads");
+const uploadDir = env.UPLOAD_DIR;
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/json",
+  "application/zip",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+]);
 
 // Multer disk storage retaining unique file paths
 const storage = multer.diskStorage({
@@ -29,6 +45,13 @@ const upload = multer({
   storage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB per file
+  },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} is not allowed`));
+    }
   }
 });
 

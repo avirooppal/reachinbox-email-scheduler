@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run test/components.test.tsx",
+    "test:e2e": "vitest run test/full_e2e_verification.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",

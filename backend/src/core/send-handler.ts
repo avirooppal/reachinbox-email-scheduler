@@ -24,7 +24,7 @@ export interface SendHandlerContext {
 
 export type SendOutcome =
   | { outcome: "SENT"; messageId: string; previewUrl?: string }
-  | { outcome: "RESCHEDULED"; retryAt: number; reason: "RATE_LIMIT" | "MIN_GAP" | "SENDER_OPEN" }
+  | { outcome: "RESCHEDULED"; retryAt: number; reason: "RATE_LIMIT" | "MIN_GAP" | "SENDER_OPEN" | "LIMITED" | "TOO_SOON" }
   | { outcome: "ALREADY_TERMINAL"; status: string }
   | { outcome: "CLAIM_LOST" }
   | { outcome: "FAILED"; reason: string };

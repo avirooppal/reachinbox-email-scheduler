@@ -4,3 +4,8 @@ dist/
 *.log
 graphify-out/
 .DS_Store
+client_secret*.json
+*.txt
+backend/uploads/
+uploads/
+

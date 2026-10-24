@@ -1,4 +1,4 @@
-import { env } from "./config/env.js";
+import { env, assertProductionSafety } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { prisma } from "./infra/prisma.js";
 import { redis } from "./infra/redis.js";
@@ -6,6 +6,7 @@ import { createEmailWorker } from "./workers/email.worker.js";
 import { reconcileQueue } from "./queue/reconciler.js";
 
 async function main() {
+  assertProductionSafety(env);
   const workerId = `worker-${process.pid}`;
   logger.info(
     {

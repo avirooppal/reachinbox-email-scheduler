@@ -52,7 +52,13 @@ export async function reconcileQueue(): Promise<ReconcileResult> {
     staleRecovered++;
   }
 
-  // 2. Efficient bulk lookup of all active/delayed/waiting BullMQ job IDs
+  // 2. Clean dead failed and completed jobs so BullMQ jobId deduplication doesn't block re-enqueueing
+  await Promise.all([
+    emailQueue.clean(0, 0, "failed"),
+    emailQueue.clean(0, 0, "completed")
+  ]);
+
+  // 3. Efficient bulk lookup of all active/delayed/waiting BullMQ job IDs
   // BullMQ stores delayed jobs in 'bull:<queue>:delayed' zset and waiting in 'bull:<queue>:wait' list
   const queuePrefix = `bull:${emailQueue.name}`;
   const [delayedIds, waitingIds, activeIds] = await Promise.all([
@@ -63,7 +69,7 @@ export async function reconcileQueue(): Promise<ReconcileResult> {
 
   const existingJobIds = new Set<string>([...delayedIds, ...waitingIds, ...activeIds]);
 
-  // 3. Scan all SCHEDULED emails to ensure each has a corresponding BullMQ job
+  // 4. Scan all SCHEDULED emails to ensure each has a corresponding BullMQ job
   const pendingEmails = await prisma.email.findMany({
     where: { status: "SCHEDULED" },
     select: { id: true, scheduledAt: true }

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import { env } from "./config/env.js";
+import { env, assertProductionSafety } from "./config/env.js";
 import { logger, createChildLogger } from "./config/logger.js";
 import { prisma } from "./infra/prisma.js";
 import { redis } from "./infra/redis.js";
@@ -20,9 +20,25 @@ import { serverAdapter as bullBoardAdapter } from "./modules/admin/board.js";
 import { register as prometheusRegister } from "./modules/metrics/metrics.service.js";
 import { requireAuth, requireAdmin } from "./modules/auth/auth.middleware.js";
 
+assertProductionSafety(env);
+
 export const app = express();
 
-app.use(helmet({ contentSecurityPolicy: false })); // Allow Bull Board UI scripts
+app.set("trust proxy", env.TRUST_PROXY);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Allow Bull Board UI inline assets
+    hsts:
+      env.NODE_ENV === "production"
+        ? {
+            maxAge: 31536000,
+            includeSubDomains: true,
+            preload: true
+          }
+        : false
+  })
+);
 
 // Request correlation ID and logger middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -39,8 +55,10 @@ app.use(
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
-      } else {
+      } else if (env.NODE_ENV !== "production") {
         callback(null, true); // Permissive in local dev
+      } else {
+        callback(new Error("CORS policy violation"));
       }
     },
     credentials: true

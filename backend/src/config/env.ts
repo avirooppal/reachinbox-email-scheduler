@@ -13,6 +13,8 @@ const envSchema = z.object({
   ELASTICSEARCH_URL: z.string().url("ELASTICSEARCH_URL must be a valid URL"),
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  TRUST_PROXY: z.coerce.number().default(1),
+  UPLOAD_DIR: z.string().default(path.resolve(process.cwd(), "uploads")),
 
   // Worker & Scheduler Configuration
   WORKER_CONCURRENCY: z.coerce.number().min(1).default(5),
@@ -49,9 +51,41 @@ const envSchema = z.object({
   SLACK_CLIENT_ID: z.string().default(""),
   SLACK_CLIENT_SECRET: z.string().default(""),
   SLACK_REDIRECT_URI: z.string().default("http://localhost:4000/api/integrations/slack/callback")
+}).superRefine((data, ctx) => {
+  if (data.NODE_ENV === "production") {
+    if (data.ENABLE_FAULT_INJECTION) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "CRITICAL: ENABLE_FAULT_INJECTION must be false in production",
+        path: ["ENABLE_FAULT_INJECTION"]
+      });
+    }
+    if (data.JWT_SECRET.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "CRITICAL: JWT_SECRET must be at least 32 characters in production",
+        path: ["JWT_SECRET"]
+      });
+    }
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+/**
+ * Asserts production safety kill-switches and invariants at startup.
+ * Throws immediately and aborts process if unsafe settings are detected in production.
+ */
+export function assertProductionSafety(cfg: Env): void {
+  if (cfg.NODE_ENV === "production") {
+    if (cfg.ENABLE_FAULT_INJECTION) {
+      throw new Error("PRODUCTION SAFETY VIOLATION: ENABLE_FAULT_INJECTION is true in production! Refusing to boot.");
+    }
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error(`PRODUCTION SAFETY VIOLATION: NODE_ENV mismatch (${process.env.NODE_ENV} vs production)! Refusing to boot.`);
+    }
+  }
+}
 
 function parseEnv(): Env {
   const result = envSchema.safeParse(process.env);
@@ -64,3 +98,4 @@ function parseEnv(): Env {
 }
 
 export const env = parseEnv();
+

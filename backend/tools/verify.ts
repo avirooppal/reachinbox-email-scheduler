@@ -46,7 +46,8 @@ async function main() {
       "test/m11.test.ts",
       "test/m12.test.ts",
       "test/m13.test.ts",
-      "test/m14.test.ts"
+      "test/m14.test.ts",
+      "test/production_boot.test.ts"
     ];
     for (const suite of testSuites) {
       runStep(`Test Suite [${suite}]`, `npx vitest run ${suite}`);
