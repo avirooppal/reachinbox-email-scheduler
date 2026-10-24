@@ -33,7 +33,9 @@ const envSchema = z.object({
   BREAKER_FAILURES: z.coerce.number().min(1).default(5),
   BREAKER_WINDOW_MS: z.coerce.number().min(1000).default(60000),
   BREAKER_COOLDOWN_MS: z.coerce.number().min(1000).default(120000),
-  ENABLE_FAULT_INJECTION: z.coerce.boolean().default(false),
+  ENABLE_FAULT_INJECTION: z
+    .preprocess((val) => val === true || val === "true" || val === "1", z.boolean())
+    .default(false),
 
   // Security
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
