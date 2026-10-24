@@ -29,7 +29,7 @@ emailsRouter.get("/counts", async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const [scheduled, sent] = await Promise.all([
       prisma.email.count({
-        where: { userId, status: "SCHEDULED", deletedAt: null }
+        where: { userId, status: { in: ["SCHEDULED", "PROCESSING"] }, deletedAt: null }
       }),
       prisma.email.count({
         where: { userId, status: "SENT", deletedAt: null }
@@ -171,7 +171,7 @@ emailsRouter.get("/", async (req: Request, res: Response) => {
       if (upper === "SCHEDULED") {
         where.status = { in: ["SCHEDULED", "PROCESSING"] };
       } else if (upper === "SENT") {
-        where.status = { in: ["SENT", "DELIVERED"] };
+        where.status = "SENT";
       } else if (upper === "FAILED") {
         where.status = "FAILED";
       } else {

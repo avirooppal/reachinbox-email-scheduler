@@ -204,8 +204,8 @@ declare global {
 }
 
 if (process.env.NODE_ENV !== "test") {
-  if (process.env.RUN_WORKER === "true") {
-    logger.info("RUN_WORKER=true detected: starting inline email worker...");
+  if (process.env.RUN_WORKER !== "false") {
+    logger.info("Starting inline email worker and queue reconciler...");
     import("./workers/email.worker.js").then(({ createEmailWorker }) => {
       import("./queue/reconciler.js").then(({ reconcileQueue }) => {
         reconcileQueue().catch((err) => logger.error({ err }, "Boot reconciler error"));
