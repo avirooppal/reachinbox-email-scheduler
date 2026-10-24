@@ -1,6 +1,36 @@
-# Outbox: Verifiable Email Scheduler Backend
+# Outbox: Verifiable Email Scheduler Backend & Dashboard
 
-A production-grade, verifiable email scheduling backend built in Node.js, TypeScript, PostgreSQL, Redis BullMQ, and Elasticsearch. Designed specifically to solve real cold-outreach deliverability challenges with strict deterministic guarantees, zero cron reliance, and formal invariant auditing.
+> **Hiring Assignment:** Full-stack Email Job Scheduler for [ReachInbox.ai](https://reachinbox.ai) (Outbox Labs).  
+> **Live Production URL:** [https://reachinbox-email-scheduler-n1js.onrender.com](https://reachinbox-email-scheduler-n1js.onrender.com)  
+> **Reviewer Demo Credentials:** `demo@example.com` / `DemoPassword123!` (or sign in with any Google account).  
+> **Bull Board Queue Dashboard:** [https://reachinbox-email-scheduler-n1js.onrender.com/admin/queues](https://reachinbox-email-scheduler-n1js.onrender.com/admin/queues)  
+> **Prometheus Metrics:** [https://reachinbox-email-scheduler-n1js.onrender.com/metrics](https://reachinbox-email-scheduler-n1js.onrender.com/metrics)
+
+---
+
+## Feature Implementation Mapping
+
+| Category | Requirement (from Brief) | Implementation & Location in Code |
+|---|---|---|
+| **Backend: Scheduler** | Accept email send requests via API | `POST /api/campaigns` (`backend/src/modules/campaigns/campaigns.routes.ts`) |
+| | BullMQ delayed jobs backed by Redis (**Zero Cron**) | `emailQueue.addBulk` (`backend/src/adapters/queue.bullmq.ts`) |
+| | Ethereal Email fake SMTP multi-sender delivery | `NodemailerTransportAdapter` (`backend/src/adapters/transport.nodemailer.ts`) |
+| | Elasticsearch search & indexing | ES 8 client with full-text search (`GET /api/emails/search`) |
+| | Live BullMQ dashboard | Bull Board UI mounted at `/admin/queues` (`backend/src/modules/admin/board.ts`) |
+| **Backend: Persistence** | Survive server restart without losing or duplicating jobs | `reconciler.ts` runs on boot, scans PostgreSQL ground truth |
+| | At-most-once idempotency | Atomic PostgreSQL claim lock: `UPDATE ... WHERE status = 'SCHEDULED' RETURNING *` |
+| **Backend: Concurrency** | Configurable worker concurrency | `WORKER_CONCURRENCY` env (`backend/src/workers/email.worker.ts`) |
+| | Delay between each email send | Configurable `MIN_DELAY_BETWEEN_EMAILS_MS` (default 2s) |
+| | Hourly rate limiting per sender & global | Distributed Redis Lua sliding-window script (`backend/src/adapters/lua/`) |
+| | Reschedule over-limit jobs into next hour window | `job.moveToDelayed()` + `DelayedError` (no dropped jobs, order preserved) |
+| | Slack notification on rate limit hit | Live Slack OAuth v2 flow (`/api/integrations/slack`) + encrypted webhook alert |
+| | High load surge handling | 10k email simulation & 2k surge load tests passing (`tools/simulate.ts`, `tools/load.ts`) |
+| **Frontend: Auth & Shell** | Real Google OAuth login (no mock) | Google OAuth 2.0 flow with user name, email, avatar header & logout |
+| | Figma-faithful dashboard layout | Dark modern theme matching Figma design (`frontend/src/components/layout/`) |
+| **Frontend: Views** | Compose New Email with CSV upload | Subject, body, CSV lead parser with email count detection, delay & rate inputs |
+| | Scheduled Emails Table | Email, subject, scheduled time badge, loading skeletons, empty state |
+| | Sent Emails Table with Ethereal Previews | Email, subject, sent time, direct links to rendered Ethereal Web Viewer |
+| | Code quality & UX | Full TypeScript typings, TanStack Query auto-polling (3s), Sonner toasts |
 
 ---
 
@@ -358,5 +388,31 @@ Reviewers can access the live system through multiple zero-friction pathways:
 - **Deployment Script:** `infra/scripts/deploy.sh`
 - **Automated Smoke Test:** `infra/scripts/smoke-prod.sh`
 - **Hot Backup & Scratch Restore:** `infra/scripts/backup.sh`, `infra/scripts/restore.sh`
+
+---
+
+## 12. Assumptions, Trade-offs & Demo Guide
+
+### Assumptions & Architectural Trade-offs
+1. **PostgreSQL as Primary Source of Truth vs Pure Redis:**
+   - *Trade-off:* Relying solely on Redis makes scheduling faster, but risking data loss upon Redis memory eviction or persistence lag.
+   - *Design Choice:* BullMQ carries only minimal pointers (`{ emailId }`). All campaign, recipient, attachment, and status states live in ACID PostgreSQL with an append-only event ledger. Redis can be flushed at any time (`FLUSHALL`) and the boot reconciler will rebuild 100% of missing jobs without data loss.
+2. **Two-Tier Idempotency (Advisory Lock + Atomic Claim):**
+   - *Trade-off:* Slightly higher database transaction overhead during campaign submission.
+   - *Design Choice:* `pg_advisory_xact_lock(hashtext(senderId))` prevents slot collisions during bulk planning across concurrent API requests. When a worker pulls a job, `UPDATE emails SET status = 'PROCESSING' WHERE id = $id AND status = 'SCHEDULED'` guarantees at-most-once delivery even if two workers receive the same job ID.
+3. **Delayed Error Postponement vs Retries for Rate Limiting:**
+   - *Trade-off:* BullMQ jobs remain in `delayed` state rather than immediately completing or failing.
+   - *Design Choice:* When a sender reaches their hourly quota, jobs are rescheduled into the next clock hour via `job.moveToDelayed()` without consuming the job's `attempts` counter. This prevents legitimate emails from being marked as dead-letter failures.
+4. **Single-Service Edge Proxy (Caddy / Render Unified):**
+   - *Trade-off:* Single domain routing.
+   - *Design Choice:* Eliminates cross-origin cookie issues (`SameSite=Lax`), ensures HTTPS redirect URIs match on all platforms, and simplifies OAuth callback handling.
+
+### Demo Video Walkthrough (< 5 Minutes)
+1. **Login & Dashboard:** Sign in with Google (or `demo@example.com`). Observe user name and avatar in top header.
+2. **Compose Campaign:** Open **Compose New Email**, enter Subject and Body, upload a CSV of leads (observe detected email count), set inter-send delay and hourly limit.
+3. **Live Dispatch & Ethereal Previews:** Navigate to **Scheduled** tab -> watch real-time countdown -> navigate to **Sent** tab -> click an email to open the live **Ethereal Web Viewer** showing rendered MIME HTML.
+4. **Queue Observability:** Open `/admin/queues` to inspect live BullMQ queue states (`Waiting`, `Active`, `Delayed`).
+5. **Restart Scenario:** Explain that upon container or process restart, `reconciler.ts` queries PostgreSQL for all pending `SCHEDULED` emails and restores their BullMQ delayed timers with zero duplicate sends.
+
 
 
