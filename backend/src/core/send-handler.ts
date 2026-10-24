@@ -58,8 +58,13 @@ export async function handleSend(
   const email = await prisma.email.findUnique({
     where: { id: emailId },
     include: {
-      campaign: true,
-      sender: true
+      campaign: {
+        include: {
+          attachments: true
+        }
+      },
+      sender: true,
+      attachments: true
     }
   });
 
@@ -68,7 +73,7 @@ export async function handleSend(
   }
 
   // Idempotency: If already terminal, exit immediately
-  if (email.status === "SENT" || email.status === "FAILED") {
+  if (email.status === "SENT" || email.status === "FAILED" || email.status === "CANCELLED") {
     return { outcome: "ALREADY_TERMINAL", status: email.status };
   }
 
@@ -236,12 +241,24 @@ export async function handleSend(
 
   try {
     const transport = await transportFactory(sender as unknown as SenderRecord);
+    const campaignAttachments = email.campaign?.attachments || [];
+    const allAttachments = [
+      ...(email.attachments || []),
+      ...campaignAttachments.filter((ca) => !(email.attachments || []).some((ea) => ea.id === ca.id))
+    ];
+    const mappedAttachments = allAttachments.map((att) => ({
+      filename: att.filename,
+      path: att.storagePath,
+      contentType: att.mimeType
+    }));
+
     const sendResult = await transport.send({
       from: sender.fromEmail,
       to: email.toEmail,
       subject: email.subject,
       body: email.body,
-      messageId: deterministicMessageId
+      messageId: deterministicMessageId,
+      attachments: mappedAttachments.length > 0 ? mappedAttachments : undefined
     });
 
     // 6. Mark SENT + Append SENT event in one transaction

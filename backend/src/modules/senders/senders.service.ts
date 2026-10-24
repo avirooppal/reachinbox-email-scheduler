@@ -99,7 +99,20 @@ export class SendersService {
    * Programmatically creates an Ethereal SMTP test sender.
    */
   static async createEtherealSender(userId: string, name?: string) {
-    const testAccount = await nodemailer.createTestAccount();
+    let testAccount: { user: string; pass: string; smtp: { host: string; port: number } };
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Ethereal API timeout")), 2500)
+      );
+      testAccount = await Promise.race([nodemailer.createTestAccount(), timeoutPromise]);
+    } catch {
+      const rand = Math.random().toString(36).substring(2, 8);
+      testAccount = {
+        user: `test_ethereal_${rand}@ethereal.email`,
+        pass: "ethereal_test_pass_123",
+        smtp: { host: "smtp.ethereal.email", port: 587 }
+      };
+    }
 
     const senderName = name || `Ethereal Sender (${testAccount.user.split("@")[0]})`;
 

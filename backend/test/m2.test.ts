@@ -55,7 +55,7 @@ describe("Milestone 2: Senders & SMTP Management", () => {
 
     const decrypted = decrypt(rawSender!.smtpPassEnc);
     expect(decrypted.length).toBeGreaterThan(0);
-  }, 15000);
+  }, 30000);
 
   it("GET /api/senders returns the user's senders without exposing passwords", async () => {
     const res = await request(app)

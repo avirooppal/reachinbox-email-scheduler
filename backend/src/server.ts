@@ -15,6 +15,7 @@ import { campaignsRouter } from "./modules/campaigns/campaigns.routes.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
 import { slackRouter } from "./modules/integrations/slack.routes.js";
 import { statsRouter } from "./modules/stats/stats.routes.js";
+import { attachmentsRouter } from "./modules/attachments/attachments.routes.js";
 import { serverAdapter as bullBoardAdapter } from "./modules/admin/board.js";
 import { register as prometheusRegister } from "./modules/metrics/metrics.service.js";
 import { requireAuth, requireAdmin } from "./modules/auth/auth.middleware.js";
@@ -22,9 +23,26 @@ import { requireAuth, requireAdmin } from "./modules/auth/auth.middleware.js";
 export const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false })); // Allow Bull Board UI scripts
+
+// Request correlation ID and logger middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const requestId = (req.headers["x-request-id"] as string) || crypto.randomUUID();
+  res.setHeader("x-request-id", requestId);
+  req.log = createChildLogger({ requestId });
+  req.requestId = requestId;
+  next();
+});
+
+const allowedOrigins = [env.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Permissive in local dev
+      }
+    },
     credentials: true
   })
 );
@@ -54,22 +72,10 @@ app.use("/auth", authRouter);
 app.use("/api/senders", sendersRouter);
 app.use("/api/emails", emailsRouter);
 app.use("/api/campaigns", campaignsRouter);
+app.use("/api/attachments", attachmentsRouter);
 app.use("/api/integrations/slack", slackRouter);
 app.use("/api/stats", statsRouter);
 app.use("/admin", adminRouter);
-
-
-
-
-
-// Request correlation ID and logger middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const requestId = (req.headers["x-request-id"] as string) || crypto.randomUUID();
-  res.setHeader("x-request-id", requestId);
-  req.log = createChildLogger({ requestId });
-  req.requestId = requestId;
-  next();
-});
 
 // Liveness check
 app.get("/health", (_req: Request, res: Response) => {

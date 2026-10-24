@@ -64,15 +64,31 @@ export class NodemailerTransportAdapter implements Transport {
   async send(params: SendMailParams): Promise<SendMailResult> {
     const transporter = NodemailerTransportAdapter.getTransporter(this.senderId, this.config);
 
-    const info = await transporter.sendMail({
+    const isHtml = params.html || params.body.includes("<");
+    const mailOptions: nodemailer.SendMailOptions = {
       from: params.from,
       to: params.to,
       subject: params.subject,
-      text: params.body,
+      text: params.body.replace(/<[^>]+>/g, " ").trim() || params.body,
       headers: {
         "Message-ID": params.messageId
       }
-    });
+    };
+
+    if (isHtml) {
+      mailOptions.html = params.html || params.body;
+    }
+
+    if (params.attachments && params.attachments.length > 0) {
+      mailOptions.attachments = params.attachments.map((att) => ({
+        filename: att.filename,
+        path: att.path,
+        content: att.content,
+        contentType: att.contentType
+      }));
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
 

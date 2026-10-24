@@ -7,16 +7,19 @@ import { env } from "../../config/env.js";
 
 export interface RecipientInput {
   email: string;
+  name?: string;
   vars?: Record<string, string>;
 }
 
 export interface ScheduleCampaignInput {
   subject: string;
   body: string;
-  startAt: string | Date;
+  startAt?: string | Date;
+  senderId?: string;
   delayMs?: number;
   hourlyLimit?: number;
   jitterPct?: number;
+  attachmentIds?: string[];
   recipients: RecipientInput[];
 }
 
@@ -40,7 +43,7 @@ export class CampaignsService {
       if (validMap.has(email)) {
         duplicatesRemoved++;
       } else {
-        validMap.set(email, { email, vars: r.vars || {} });
+        validMap.set(email, { email, name: r.name, vars: r.vars || {} });
       }
     }
 
@@ -66,7 +69,11 @@ export class CampaignsService {
 
     // Load user's healthy senders
     const dbSenders = await prisma.sender.findMany({
-      where: { userId, isActive: true }
+      where: {
+        userId,
+        isActive: true,
+        ...(input.senderId ? { id: input.senderId } : {})
+      }
     });
 
     const senders: PlannerSender[] = dbSenders.map((s) => ({
@@ -78,7 +85,7 @@ export class CampaignsService {
       minDelayMs: s.minDelayMs
     }));
 
-    const startAt = new Date(input.startAt);
+    const startAt = input.startAt ? new Date(input.startAt) : new Date();
 
     // Read occupied timeline for these senders from startAt onwards
     const futureEmails = await prisma.email.findMany({
@@ -159,7 +166,11 @@ export class CampaignsService {
     }
 
     const dbSenders = await prisma.sender.findMany({
-      where: { userId, isActive: true }
+      where: {
+        userId,
+        isActive: true,
+        ...(input.senderId ? { id: input.senderId } : {})
+      }
     });
 
     const senders: PlannerSender[] = dbSenders.map((s) => ({
@@ -175,7 +186,7 @@ export class CampaignsService {
       throw new Error("No healthy senders available to schedule campaign");
     }
 
-    const startAt = new Date(input.startAt);
+    const startAt = input.startAt ? new Date(input.startAt) : new Date();
     const delayMs = input.delayMs ?? env.MIN_DELAY_BETWEEN_EMAILS_MS;
     const hourlyLimit = input.hourlyLimit ?? env.MAX_EMAILS_PER_HOUR_PER_SENDER;
     const jitterPct = input.jitterPct ?? env.JITTER_PCT;
@@ -258,6 +269,7 @@ export class CampaignsService {
             userId,
             senderId: slot.senderId,
             toEmail: rec.email,
+            toName: rec.name || null,
             subject: input.subject,
             body: renderedBody,
             seq: slot.seq,
@@ -284,6 +296,22 @@ export class CampaignsService {
           select: { id: true, senderId: true, plannedAt: true, seq: true },
           orderBy: { seq: "asc" }
         });
+
+        // Link attachments to campaign and inserted emails
+        if (input.attachmentIds && input.attachmentIds.length > 0) {
+          await tx.attachment.updateMany({
+            where: { id: { in: input.attachmentIds }, userId },
+            data: { campaignId: campaign.id }
+          });
+
+          // Also set emailId for the first email if single recipient
+          if (inserted.length === 1 && inserted[0]) {
+            await tx.attachment.updateMany({
+              where: { id: { in: input.attachmentIds }, userId },
+              data: { emailId: inserted[0].id }
+            });
+          }
+        }
 
         // Insert PLANNED events
         for (const ins of inserted) {

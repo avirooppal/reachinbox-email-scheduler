@@ -18,16 +18,22 @@ campaignsRouter.use(requireAuth);
 const scheduleCampaignSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
   body: z.string().min(1, "Body is required"),
-  startAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "startAt must be a valid ISO date"
-  }),
+  startAt: z
+    .string()
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "startAt must be a valid ISO date"
+    })
+    .optional(),
+  senderId: z.string().optional(),
   delayMs: z.coerce.number().min(0).optional(),
   hourlyLimit: z.coerce.number().min(1).optional(),
   jitterPct: z.coerce.number().min(0).max(100).optional(),
+  attachmentIds: z.array(z.string()).optional(),
   recipients: z
     .array(
       z.object({
         email: z.string(),
+        name: z.string().optional(),
         vars: z.record(z.string()).optional()
       })
     )
@@ -49,10 +55,15 @@ function parseRecipients(req: Request): RecipientInput[] {
     return records.map((record) => {
       // Look for 'email' or 'Email' column
       const email = record.email || record.Email || record.EMAIL || Object.values(record)[0] || "";
-      const { email: _e, Email: _E, EMAIL: _EM, ...vars } = record;
+      const name = record.name || record.Name || record.NAME || record["Full Name"] || record.Recipient;
+      const { email: _e, Email: _E, EMAIL: _EM, name: _n, Name: _N, ...vars } = record;
       return {
         email,
-        vars
+        name: name ? String(name).trim() : undefined,
+        vars: {
+          ...vars,
+          ...(name ? { name: String(name).trim() } : {})
+        }
       };
     });
   }

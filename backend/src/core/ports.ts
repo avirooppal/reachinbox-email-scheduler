@@ -8,12 +8,21 @@ export interface Clock {
   nowMs(): number;
 }
 
+export interface AttachmentParam {
+  filename: string;
+  path?: string;
+  content?: Buffer;
+  contentType?: string;
+}
+
 export interface SendMailParams {
   from: string;
   to: string;
   subject: string;
   body: string;
+  html?: string;
   messageId: string;
+  attachments?: AttachmentParam[];
 }
 
 export interface SendMailResult {
@@ -64,7 +73,8 @@ export interface EventRecord {
     | "SMTP_ERROR"
     | "FAILOVER"
     | "RECOVERED"
-    | "FAILED";
+    | "FAILED"
+    | "CANCELLED";
   at?: Date;
   data: Record<string, unknown>;
 }
@@ -79,13 +89,17 @@ export interface EmailRecord {
   userId: string;
   senderId: string;
   toEmail: string;
+  toName?: string | null;
   subject: string;
   body: string;
   seq: number;
   plannedAt: Date;
   scheduledAt: Date;
-  status: "SCHEDULED" | "PROCESSING" | "SENT" | "FAILED";
+  status: "SCHEDULED" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
   attempts: number;
+  isStarred?: boolean;
+  isArchived?: boolean;
+  deletedAt?: Date | null;
   messageId: string | null;
   previewUrl: string | null;
   lastError: string | null;

@@ -261,3 +261,43 @@ RESULT: PASS
 - **System Stats**: `GET /api/stats` returns live queue counts, sender capacities, and next scheduled delivery time.
 - **Elasticsearch Search**: Full-text fuzzy search with keyword highlights via `GET /api/emails/search?q=query`.
 - **Offline Index Reconstruction**: `npm run reindex` rebuilds Elasticsearch index from PostgreSQL truth with external document versioning.
+
+---
+
+## 10. Frontend Web Application
+
+A pixel-faithful, responsive single-page web client matching the 7 Figma designs in `./design/` built with React 18, Vite, TypeScript, Tailwind CSS, TanStack Query, and TipTap.
+
+### Quick Start
+```bash
+# In terminal 1 (with backend running):
+cd frontend
+npm install
+npm run dev      # http://localhost:5173
+```
+
+### Supported User Capabilities
+- **Authentication**: Google OAuth 2.0 flow and Email/Password authentication (`/auth/login`, `/auth/register`). Default seeded account: `oliver.brown@domain.io` / `password123`.
+- **Dashboard Lists**:
+  - **Scheduled View** (`/scheduled`): Real-time countdown badges (`Tue 9:15:12 AM`), recipient chips, snippet previews, and one-click star toggles.
+  - **Sent View** (`/sent`): Sent/Failed state pills, sent timestamps (`Nov 3, 10:23 AM`), and Elasticsearch/SQL search.
+- **Search & Filtering**: Instant search across subject, body, and recipient with star filters and manual queue refresh.
+- **Compose Campaign** (`/compose`):
+  - **Sender Selection**: Auto-rotation or specific sender selection with `+ Add Ethereal sender` on-the-fly generation.
+  - **Recipient Chips**: Smart chip parsing on commas, spaces, or semicolons; `+N` popover modal for lists > 3 recipients; CSV file upload button.
+  - **Delivery Controls**: Configurable inter-send delay (seconds) and sender hourly limits.
+  - **Send Later**: Popover with quick presets ("Tomorrow, 10:00 AM", etc.) and datetime picker.
+  - **Rich Text Editor**: TipTap editor with floating formatting toolbar (headings, lists, bold, italic, underline, alignment).
+  - **Multipart Attachments**: File uploads up to 15MB total with thumbnail previews and downloads.
+- **Email Detail View** (`/emails/:id`): Full HTML email rendering with callouts, sender details popover, attachment downloads, and expandable **Delivery Timeline & Audit Ledger** showing real-time event states (`PLANNED`, `ENQUEUED`, `SLOT_RESERVED`, `CLAIMED`, `SENT`).
+
+### Visual Evidence (1440x900 Captures)
+Real screenshot evidence captured from the running application against the live backend stack is stored in `docs/frontend-evidence/`:
+1. `docs/frontend-evidence/01-login.png` - Login Card & OAuth
+2. `docs/frontend-evidence/02-scheduled.png` - Scheduled Emails View
+3. `docs/frontend-evidence/03-compose-send-later.png` - Compose with Send Later Popover
+4. `docs/frontend-evidence/04-sent.png` - Sent Emails View
+5. `docs/frontend-evidence/05-compose-attachment.png` - Compose with File Attachment
+6. `docs/frontend-evidence/06-email-detail.png` - Email Detail, HTML Callouts & Timeline Expander
+7. `docs/frontend-evidence/07-compose-recipients.png` - Recipient Chips (+4 Popover) & Upload List
+

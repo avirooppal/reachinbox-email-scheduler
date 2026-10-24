@@ -18,6 +18,7 @@ enum EmailStatus {
   PROCESSING
   SENT
   FAILED
+  CANCELLED
 }
 
 enum EventType {
@@ -31,6 +32,7 @@ enum EventType {
   FAILOVER
   RECOVERED
   FAILED
+  CANCELLED
 }
 
 enum SlackStatus {
@@ -40,14 +42,16 @@ enum SlackStatus {
 
 model User {
   id               String            @id @default(uuid())
-  googleId         String            @unique @map("google_id")
+  googleId         String?           @unique @map("google_id")
   email            String            @unique
+  passwordHash     String?           @map("password_hash")
   name             String
   avatarUrl        String?           @map("avatar_url")
   createdAt        DateTime          @default(now()) @map("created_at")
   senders          Sender[]
   campaigns        Campaign[]
   emails           Email[]
+  attachments      Attachment[]
   slackIntegration SlackIntegration?
 
   @@map("users")
@@ -90,6 +94,7 @@ model Campaign {
   user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   emails          Email[]
   events          EmailEvent[]
+  attachments     Attachment[]
 
   @@unique([userId, idempotencyKey])
   @@map("campaigns")
@@ -101,6 +106,7 @@ model Email {
   userId      String       @map("user_id")
   senderId    String       @map("sender_id")
   toEmail     String       @map("to_email")
+  toName      String?      @map("to_name")
   subject     String
   body        String
   seq         Int
@@ -108,6 +114,9 @@ model Email {
   scheduledAt DateTime     @map("scheduled_at")
   status      EmailStatus  @default(SCHEDULED)
   attempts    Int          @default(0)
+  isStarred   Boolean      @default(false) @map("is_starred")
+  isArchived  Boolean      @default(false) @map("is_archived")
+  deletedAt   DateTime?    @map("deleted_at")
   messageId   String?      @map("message_id")
   previewUrl  String?      @map("preview_url")
   lastError   String?      @map("last_error")
@@ -119,12 +128,35 @@ model Email {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   sender      Sender       @relation(fields: [senderId], references: [id])
   events      EmailEvent[]
+  attachments Attachment[]
 
   @@unique([campaignId, toEmail])
   @@unique([senderId, plannedAt])
   @@index([status, scheduledAt])
   @@index([userId, status, scheduledAt])
+  @@index([userId, isStarred])
+  @@index([userId, isArchived])
   @@map("emails")
+}
+
+model Attachment {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  emailId     String?   @map("email_id")
+  campaignId  String?   @map("campaign_id")
+  filename    String
+  mimeType    String    @map("mime_type")
+  sizeBytes   Int       @map("size_bytes")
+  storagePath String    @map("storage_path")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       Email?    @relation(fields: [emailId], references: [id], onDelete: SetNull)
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([emailId])
+  @@index([campaignId])
+  @@map("attachments")
 }
 
 model EmailEvent {

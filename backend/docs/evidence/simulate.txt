@@ -1,0 +1,50 @@
+===============================================================================
+SIMULATOR: Deterministic Multi-Day Virtual-Clock Simulation
+Core engine, real Redis limiter, real PostgreSQL, zero network sleep
+===============================================================================
+
+--- SCENARIO 1: 10,000 Emails across 3 Senders over 7 Simulated Days ---
+Planned 10,000 emails. Start: 2026-10-23T08:00:00.000Z -> Finish: 2026-10-25T15:01:10.124Z (2.29 days)
+Dispatching 10,000 emails through virtual clock engine (parallel per sender)...
+Progress: 741/10,000 sent (7.4%) in 5.0s (Virtual time: 2026-10-23T11:02:04.845Z)
+Progress: 1000/10,000 sent (10.0%) in 6.8s (Virtual time: 2026-10-23T13:01:36.833Z)
+Progress: 1851/10,000 sent (18.5%) in 11.8s (Virtual time: 2026-10-23T18:00:06.419Z)
+Progress: 2000/10,000 sent (20.0%) in 12.5s (Virtual time: 2026-10-23T19:01:24.657Z)
+Progress: 2701/10,000 sent (27.0%) in 17.5s (Virtual time: 2026-10-23T23:00:02.230Z)
+Progress: 3000/10,000 sent (30.0%) in 19.1s (Virtual time: 2026-10-24T00:01:21.501Z)
+Progress: 3827/10,000 sent (38.3%) in 24.1s (Virtual time: 2026-10-24T05:00:39.846Z)
+Progress: 4000/10,000 sent (40.0%) in 25.0s (Virtual time: 2026-10-24T05:02:05.281Z)
+Progress: 4751/10,000 sent (47.5%) in 30.1s (Virtual time: 2026-10-24T09:01:58.456Z)
+Progress: 5000/10,000 sent (50.0%) in 31.5s (Virtual time: 2026-10-24T12:00:41.074Z)
+Progress: 5701/10,000 sent (57.0%) in 36.5s (Virtual time: 2026-10-24T15:01:27.526Z)
+Progress: 6000/10,000 sent (60.0%) in 38.1s (Virtual time: 2026-10-24T17:00:38.609Z)
+Progress: 6651/10,000 sent (66.5%) in 43.2s (Virtual time: 2026-10-24T20:01:27.338Z)
+Progress: 7000/10,000 sent (70.0%) in 45.2s (Virtual time: 2026-10-24T23:00:08.515Z)
+Progress: 7822/10,000 sent (78.2%) in 50.2s (Virtual time: 2026-10-25T03:01:24.027Z)
+Progress: 8000/10,000 sent (80.0%) in 51.3s (Virtual time: 2026-10-25T04:01:57.596Z)
+Progress: 8718/10,000 sent (87.2%) in 56.3s (Virtual time: 2026-10-25T08:01:28.193Z)
+Progress: 9000/10,000 sent (90.0%) in 58.1s (Virtual time: 2026-10-25T09:02:04.506Z)
+Progress: 9701/10,000 sent (97.0%) in 63.2s (Virtual time: 2026-10-25T13:00:43.449Z)
+Progress: 10000/10,000 sent (100.0%) in 64.9s (Virtual time: 2026-10-25T15:01:04.507Z)
+Successfully processed 10000 emails in 64.90s wall-clock time!
+
+Running Invariant Auditor on 10,000-email simulation dataset...
+AUDIT campaign=d50080fe-abb7-4c49-8864-2bb76f501bb8  emails=10000  senders=3  window=2026-10-24..2026-10-25
+ ✔ I1 at-most-once        10000 sends audited, 0 duplicate sends, 0 duplicate message_ids
+ ✔ I2 hourly cap          max 60/hr observed, cap 60 (within limits)
+ ✔ I3 min gap             min observed 2.00s, required 2.00s
+ ✔ I4 nothing lost        10000 sent, 0 failed, 0 stuck (all drained)
+ ✔ I5 never early         0 early send violations detected
+ ✔ I6 overflow order      monotonic
+ ✔ I7 stores agree        0 drift (missing Redis jobs for SCHEDULED rows)
+RESULT: PASS
+
+--- SCENARIO 2: Rate Limiter Trade-off Analysis (Fixed vs Sliding) ---
+Submitting 50 emails at 10:59 followed by 50 emails at 11:01 (Limit: 50/hr)
+Fixed Mode: Allowed 100/100 sends in a 2-minute span (Boundary Burst allowed due to hour rollover).
+Sliding Mode: Allowed 50/100 sends in the same 2-minute rolling window (Rolling Cap enforced).
+
+===============================================================================
+SIMULATION SUMMARY: ALL SCENARIOS COMPLETED
+AUDIT RESULT: PASS
+===============================================================================

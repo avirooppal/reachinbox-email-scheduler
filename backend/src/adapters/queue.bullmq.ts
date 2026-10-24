@@ -44,3 +44,19 @@ export async function enqueueBulkEmailJobs(jobs: BulkJobInput[], chunkSize = 500
     await emailQueue.addBulk(bulkPayload);
   }
 }
+
+/**
+ * Removes an email job from BullMQ queue by emailId.
+ */
+export async function removeEmailJob(emailId: string): Promise<boolean> {
+  try {
+    const job = await emailQueue.getJob(emailId);
+    if (job) {
+      await job.remove();
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
