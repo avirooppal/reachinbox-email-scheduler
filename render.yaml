@@ -6,6 +6,7 @@ services:
   - type: keyvalue
     name: scheduler-redis
     plan: free
+    ipAllowList: []
 
   - type: web
     name: reachinbox-email-scheduler
