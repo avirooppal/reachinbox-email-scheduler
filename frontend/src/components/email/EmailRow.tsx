@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Star, ExternalLink } from "lucide-react";
 import { Email } from "../../types";
 import { Badge } from "../ui/Badge";
 import { cn, formatSentTimestamp } from "../../lib/utils";
@@ -71,6 +71,21 @@ export const EmailRow: React.FC<EmailRowProps> = ({
         <span className="shrink-0 text-xs text-[#9CA3AF] font-medium tabular-nums">
           {formatSentTimestamp(email.sentAt)}
         </span>
+      )}
+
+      {/* Preview Button in Sent View */}
+      {view === "sent" && (
+        <a
+          href={email.previewUrl || `/api/emails/${email.id}/preview`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Open Ethereal Preview"
+          className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EAF6EE] hover:bg-[#00A63E] text-[#00A63E] hover:text-white text-[11px] font-semibold transition-colors"
+        >
+          <ExternalLink className="w-3 h-3" />
+          <span>Preview</span>
+        </a>
       )}
 
       {/* Star Action */}

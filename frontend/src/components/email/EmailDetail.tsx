@@ -8,7 +8,8 @@ import {
   Trash2,
   ChevronDown,
   Download,
-  FileText
+  FileText,
+  ExternalLink
 } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 import { api } from "../../lib/api";
@@ -94,7 +95,19 @@ export const EmailDetail: React.FC = () => {
         </div>
 
         {/* Action Icons */}
-        <div className="flex items-center gap-1.5 shrink-0 text-[#6B7280]">
+        <div className="flex items-center gap-2 shrink-0 text-[#6B7280]">
+          {/* Ethereal Preview Button */}
+          <a
+            href={email.previewUrl || `/api/emails/${email.id}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Ethereal Preview"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EAF6EE] hover:bg-[#00A63E] text-[#00A63E] hover:text-white text-xs font-semibold transition-all shadow-sm"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Open Preview</span>
+          </a>
+
           <button
             type="button"
             title={email.isStarred ? "Unstar" : "Star"}
@@ -137,7 +150,15 @@ export const EmailDetail: React.FC = () => {
           <div className="w-px h-4 bg-[#E5E7EB] mx-1" />
 
           {/* User profile avatar thumbnail */}
-          <Avatar name={senderName} size="sm" />
+          <a
+            href={email.previewUrl || `/api/emails/${email.id}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Ethereal Preview"
+            className="cursor-pointer transition-transform hover:scale-110"
+          >
+            <Avatar name={senderName} size="sm" />
+          </a>
         </div>
       </div>
 
