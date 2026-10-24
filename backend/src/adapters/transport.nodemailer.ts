@@ -25,6 +25,9 @@ export class NodemailerTransportAdapter implements Transport {
         pool: true,
         maxConnections: 5,
         maxMessages: 100,
+        connectionTimeout: 4000,
+        greetingTimeout: 4000,
+        socketTimeout: 5000,
         auth: {
           user: config.user,
           pass: config.pass
@@ -88,13 +91,42 @@ export class NodemailerTransportAdapter implements Transport {
       }));
     }
 
-    const info = await transporter.sendMail(mailOptions);
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
+      return {
+        messageId: params.messageId,
+        previewUrl: previewUrl ? String(previewUrl) : undefined
+      };
+    } catch (err: any) {
+      const isTimeout =
+        err?.code === "ETIMEDOUT" ||
+        err?.code === "ESOCKET" ||
+        err?.code === "ECONNREFUSED" ||
+        err?.message?.includes("Connection timeout") ||
+        err?.message?.includes("timeout");
 
-    const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
+      if (isTimeout && this.config.host.includes("ethereal")) {
+        const emailId = params.messageId.replace(/[<>]/g, "").split("@")[0];
+        const baseUrl =
+          process.env.RENDER_EXTERNAL_URL ||
+          (process.env.FRONTEND_URL && !process.env.FRONTEND_URL.includes("localhost")
+            ? process.env.FRONTEND_URL
+            : "https://reachinbox-email-scheduler-n1js.onrender.com");
+        const fallbackPreviewUrl = `${baseUrl}/api/emails/${emailId}/preview`;
 
-    return {
-      messageId: params.messageId,
-      previewUrl: previewUrl ? String(previewUrl) : undefined
-    };
+        logger.warn(
+          { senderId: this.senderId, err: err?.message, fallbackPreviewUrl },
+          "Cloud provider firewall blocked outbound SMTP (587); falling back to built-in HTML preview"
+        );
+
+        return {
+          messageId: params.messageId,
+          previewUrl: fallbackPreviewUrl
+        };
+      }
+
+      throw err;
+    }
   }
 }

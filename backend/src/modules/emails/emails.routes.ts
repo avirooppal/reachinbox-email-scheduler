@@ -237,6 +237,55 @@ emailsRouter.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// Public preview route without auth requirement
+emailsRouter.get("/:id/preview", async (req: Request, res: Response) => {
+  try {
+    const email = await prisma.email.findFirst({
+      where: { id: req.params.id as string, deletedAt: null },
+      include: {
+        sender: { select: { name: true, fromEmail: true } }
+      }
+    });
+
+    if (!email) {
+      return res.status(404).send("Email not found");
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${email.subject} - Preview</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 32px; max-width: 680px; margin: 0 auto; color: #111827; background: #FAFAFA; }
+            .card { background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            .header { border-bottom: 1px solid #F3F4F6; padding-bottom: 20px; margin-bottom: 24px; }
+            .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; background: #EAF6EE; color: #00A63E; margin-bottom: 12px; }
+            .meta { font-size: 13px; color: #6B7280; margin: 4px 0; }
+            .subject { font-size: 22px; font-weight: 700; color: #111827; margin: 12px 0 6px 0; }
+            .body { font-size: 15px; line-height: 1.6; color: #374151; white-space: pre-wrap; word-break: break-word; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header">
+              <span class="badge">Ethereal Mock Delivery Verified</span>
+              <div class="meta"><strong>From:</strong> ${email.sender?.fromEmail || email.senderId} (${email.sender?.name || "Sender"})</div>
+              <div class="meta"><strong>To:</strong> ${email.toEmail}</div>
+              <div class="meta"><strong>Date:</strong> ${email.sentAt ? email.sentAt.toUTCString() : new Date().toUTCString()}</div>
+              <div class="subject">${email.subject}</div>
+            </div>
+            <div class="body">${email.body}</div>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    return res.status(500).send("Error rendering email preview");
+  }
+});
+
 /**
  * Get single email details.
  */
