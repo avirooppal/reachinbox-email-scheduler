@@ -47,8 +47,8 @@ export class NodemailerTransportAdapter implements Transport {
         user: config.user,
         pass: config.pass
       },
-      connectionTimeout: 2000,
-      greetingTimeout: 2000
+      connectionTimeout: 8000,
+      greetingTimeout: 8000
     });
 
     try {

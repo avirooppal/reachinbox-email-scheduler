@@ -8,6 +8,7 @@ import { RecipientInput, Recipient } from "./RecipientInput";
 import { SendLaterPopover } from "./SendLaterPopover";
 import { RichEditor } from "./RichEditor";
 import { AttachmentPreview, AttachmentItem } from "./AttachmentPreview";
+import { AddSenderModal } from "./AddSenderModal";
 import { Button } from "../ui/Button";
 import { cn } from "../../lib/utils";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ export const ComposePage: React.FC = () => {
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [isAddCustomSenderOpen, setIsAddCustomSenderOpen] = useState(false);
 
   const fileAttachmentRef = useRef<HTMLInputElement>(null);
 
@@ -294,11 +296,19 @@ export const ComposePage: React.FC = () => {
                 <DropdownMenu.Separator className="h-px bg-[#F3F4F6] my-1" />
 
                 <DropdownMenu.Item
-                  onClick={() => addEtherealMutation.mutate()}
+                  onClick={() => setIsAddCustomSenderOpen(true)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-[#00A63E] font-medium outline-none hover:bg-[#EAF6EE] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>+ Add Ethereal sender</span>
+                  <span>+ Connect Real SMTP (Gmail, Resend, etc.)</span>
+                </DropdownMenu.Item>
+
+                <DropdownMenu.Item
+                  onClick={() => addEtherealMutation.mutate()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-[#6B7280] font-medium outline-none hover:bg-[#F3F4F6] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>+ Add Ethereal test sender</span>
                 </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
@@ -360,6 +370,16 @@ export const ComposePage: React.FC = () => {
           onRemove={handleRemoveAttachment}
         />
       </div>
+
+      {/* Connect Real SMTP Modal */}
+      <AddSenderModal
+        isOpen={isAddCustomSenderOpen}
+        onClose={() => setIsAddCustomSenderOpen(false)}
+        onSuccess={(newSenderId) => {
+          queryClient.invalidateQueries({ queryKey: ["senders"] });
+          setSelectedSenderId(newSenderId);
+        }}
+      />
     </div>
   );
 };

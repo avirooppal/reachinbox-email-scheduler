@@ -101,6 +101,22 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ name })
       });
+    },
+
+    createCustom: async (data: {
+      name: string;
+      fromEmail: string;
+      smtpHost: string;
+      smtpPort: number;
+      smtpUser: string;
+      smtpPass: string;
+      hourlyLimit?: number;
+      minDelayMs?: number;
+    }): Promise<{ sender: Sender }> => {
+      return request<{ sender: Sender }>("/api/senders", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
     }
   },
 
