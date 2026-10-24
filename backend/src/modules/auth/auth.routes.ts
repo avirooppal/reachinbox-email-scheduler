@@ -206,7 +206,8 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    return res.redirect(`${env.FRONTEND_URL}/scheduled`);
+    const redirectTarget = process.env.RENDER_EXTERNAL_URL || env.FRONTEND_URL;
+    return res.redirect(`${redirectTarget}/scheduled`);
   } catch (err) {
     req.log?.error({ err }, "Google OAuth callback error");
     return res.status(500).json({ error: "Failed to authenticate with Google" });

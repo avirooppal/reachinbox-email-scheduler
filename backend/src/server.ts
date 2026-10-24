@@ -51,16 +51,29 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-const allowedOrigins = [env.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  process.env.RENDER_EXTERNAL_URL,
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173"
+].filter(Boolean) as string[];
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".onrender.com") ||
+        origin.endsWith(".trycloudflare.com") ||
+        env.NODE_ENV !== "production";
+
+      if (isAllowed) {
         callback(null, true);
-      } else if (env.NODE_ENV !== "production") {
-        callback(null, true); // Permissive in local dev
       } else {
-        callback(new Error("CORS policy violation"));
+        callback(null, false);
       }
     },
     credentials: true
