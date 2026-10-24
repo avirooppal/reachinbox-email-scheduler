@@ -5,6 +5,7 @@
   "description": "A Verifiable Email Scheduler Backend",
   "main": "dist/server.js",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
     "dev:api": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "build": "tsc && node -e \"import('fs').then(f => f.cpSync('src/adapters/lua', 'dist/adapters/lua', {recursive: true}))\"",
