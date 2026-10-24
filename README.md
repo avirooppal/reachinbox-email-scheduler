@@ -301,3 +301,57 @@ Real screenshot evidence captured from the running application against the live 
 6. `docs/frontend-evidence/06-email-detail.png` - Email Detail, HTML Callouts & Timeline Expander
 7. `docs/frontend-evidence/07-compose-recipients.png` - Recipient Chips (+4 Popover) & Upload List
 
+---
+
+## 11. Production Deployment & Live Stack
+
+The Outbox stack is packaged for turnkey, single-VPS production deployment on Ubuntu 24.04 LTS with Docker Compose behind a Caddy edge reverse proxy. Full copy-paste commands and console click-paths are documented in [DEPLOY.md](file:///c:/Users/aviroop/Desktop/outbox/DEPLOY.md).
+
+### Live Architecture
+```
+Internet ──▶ DNS (A record) ──▶ VPS (Ubuntu 24.04 LTS)
+                                  │
+                         ┌────────▼─────────┐  :80/:443 (only public ports, plus 22 for SSH)
+                         │  Caddy (auto TLS) │  serves /srv/frontend, proxies /api /auth /admin
+                         └───┬───────────┬──┘
+                      edge   │           │
+                   ┌─────────▼──┐   ┌────▼───────┐
+                   │ api        │   │ worker ×2  │   same image, different command
+                   └──┬───┬───┬─┘   └──┬───┬───┬─┘
+              internal│   │   │        │   │   │   (no published ports)
+             ┌────────▼┐ ┌▼───────┐ ┌──▼───────┐
+             │Postgres │ │ Redis  │ │Elasticsearch│   volumes: pgdata, redisdata(AOF), esdata, uploads
+             └─────────┘ └────────┘ └──────────┘
+Outbound: Ethereal SMTP, Google OAuth, Slack OAuth + webhooks
+```
+
+### Reviewer Access Strategy
+Reviewers can access the live system through multiple zero-friction pathways:
+1. **Seeded Demo Account (Immediate Access):**
+   - **URL:** `https://{{DOMAIN}}/login`
+   - **Email:** `demo@example.com`
+   - **Password:** `DemoPassword123!`
+2. **Google OAuth 2.0:**
+   - Real Google sign-in is enabled via an OAuth Client ID requesting only non-sensitive scopes (`openid`, `email`, `profile`). The app is published to production, so any reviewer with a Google account can sign in without needing pre-allowlisting.
+3. **Slack OAuth Integration:**
+   - Multi-workspace public distribution is activated on the Slack app, enabling reviewers to connect their own Slack workspace to receive real-time rate limit notifications.
+4. **Ethereal Mail Previews:**
+   - Emails dispatch safely to Ethereal mock SMTP with preview URLs embedded in the UI and API, ensuring zero outbound spam while proving complete MIME rendering and attachment delivery.
+
+### Key Production Hardening Guarantees
+- **No Published DB Ports:** Only Caddy publishes ports 80 and 443. PostgreSQL (5432), Redis (6379), and Elasticsearch (9200) run strictly inside the isolated Docker `internal` network, immune to host port scans and UFW bypasses.
+- **Production Kill-Switch Safety:** `ENABLE_FAULT_INJECTION` is hardcoded to `false` in production. Both the API and Worker refuse to boot if `ENABLE_FAULT_INJECTION` is enabled in production.
+- **Zero Cron in Product:** Scheduling is 100% driven by BullMQ delayed queues with PostgreSQL atomic claim locks. Server backups are triggered via `infra/scripts/backup.sh` or optional host systemd timers, completely decoupled from email delivery.
+- **Restart & Crash Resilience:** Scheduled jobs survive container restarts and Redis data flushes. The boot reconciler scans PostgreSQL ground truth and restores any missing BullMQ jobs automatically upon worker startup.
+- **Redis Rate Limiting:** All authentication endpoints (`/auth/login`, `/auth/register`) are protected by a sliding-window Redis rate limiter (10 attempts/minute per IP) returning HTTP 429.
+
+### Deployment & Verification Artifacts
+- **Deployment Runbook:** [DEPLOY.md](file:///c:/Users/aviroop/Desktop/outbox/DEPLOY.md)
+- **Production Compose Stack:** `infra/docker-compose.prod.yml`
+- **Caddy Edge Config:** `infra/Caddyfile`
+- **Automated Bootstrap Script:** `infra/scripts/bootstrap-server.sh`
+- **Deployment Script:** `infra/scripts/deploy.sh`
+- **Automated Smoke Test:** `infra/scripts/smoke-prod.sh`
+- **Hot Backup & Scratch Restore:** `infra/scripts/backup.sh`, `infra/scripts/restore.sh`
+
+

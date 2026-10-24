@@ -1,7 +1,7 @@
 ===============================================================================
 LOAD TEST: 2,000 Emails at Same Instant (Limit: 50/hr)
 ===============================================================================
-Scheduling 2,000 emails for sender e621c57b-ba2f-4de2-9d1c-141bf804cb9a starting at 2026-10-23T10:00:00.000Z...
+Scheduling 2,000 emails for sender d98d3786-8992-41d3-a18c-91b6928e2d5d starting at 2026-10-23T10:00:00.000Z...
 Planner spread 2,000 emails over 39.0 clock-hours (max 50/hr).
 Simulating delivery execution across all planned slots (concurrency=25)...
 Completed sending 2000/2000 emails.
@@ -12,16 +12,16 @@ Observed Per-Hour Send Distribution:
   2026-10-23T12:00Z: 50 emails
   2026-10-23T13:00Z: 50 emails
   2026-10-23T14:00Z: 50 emails
+  2026-10-23T15:00Z: 50 emails
+  2026-10-23T19:00Z: 50 emails
+  2026-10-23T16:00Z: 50 emails
   2026-10-23T17:00Z: 50 emails
   2026-10-23T18:00Z: 50 emails
-  2026-10-23T19:00Z: 50 emails
-  2026-10-23T20:00Z: 50 emails
-  2026-10-23T21:00Z: 50 emails
   ... (40 total hourly buckets)
 Max Observed Hourly Rate: 50 emails/hr (Cap: 50)
 
 Running Invariant Auditor on 2,000-Email Load Campaign...
-AUDIT campaign=d3e231e4-8a19-4c42-8d58-ab027e3c78a7  emails=2000  senders=1  window=2026-10-24..2026-10-25
+AUDIT campaign=2a4dd669-8cd5-45bd-8dac-66c7103468cc  emails=2000  senders=1  window=2026-10-24..2026-10-25
  ✔ I1 at-most-once        2000 sends audited, 0 duplicate sends, 0 duplicate message_ids
  ✔ I2 hourly cap          max 50/hr observed, cap 50 (within limits)
  ✔ I3 min gap             min observed 2.00s, required 2.00s

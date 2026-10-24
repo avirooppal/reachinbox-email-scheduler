@@ -1,0 +1,51 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Security Hardening Headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Request body limit matching max multipart attachment size (5 files x 5MB + overhead)
+	request_body {
+		max_size 35MB
+	}
+
+	# Reverse-proxy API, Auth, Admin, and Operations endpoints to the API service
+	@backend {
+		path /api/* /auth/* /admin/* /metrics /health /ready
+	}
+	handle @backend {
+		reverse_proxy api:4000 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+			# Real-time event streaming support (Server-Sent Events)
+			flush_interval -1
+		}
+	}
+
+	# Immutable cache headers for compiled Vite assets
+	handle /assets/* {
+		root * /srv/frontend
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# SPA client-side fallback
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		header Cache-Control "no-cache, must-revalidate"
+		file_server
+	}
+}

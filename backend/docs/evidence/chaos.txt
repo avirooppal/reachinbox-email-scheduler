@@ -4,22 +4,22 @@ CHAOS SUITE: Worker Crashes, Redis Loss, Multi-Worker & Fault Injections
 
 --- VARIANT 1: 3 Parallel Workers Concurrent Processing ---
 Spawning 3 worker instances against shared Redis queue...
-Scheduled campaign aef43596-5261-4cdf-95b4-f1e37e019a2e with 50 emails.
+Scheduled campaign a8002abd-b29b-4ca9-a04b-02523254359a with 50 emails.
 
 --- VARIANT 2: Redis Job Loss Recovery via Reconciler ---
 Emulated Redis loss: queue drained.
-Reconciler executed: restored 28265 jobs.
+Reconciler executed: restored 30103 jobs.
 
 --- VARIANT 3: Transient Fault Injection & Error Recovery ---
 Configured FaultyTransport with 30% transient SMTP 451 error rate.
 Faults recovered cleanly.
 
 Running Invariant Auditor on Chaos Campaign...
-AUDIT campaign=aef43596-5261-4cdf-95b4-f1e37e019a2e  emails=50  senders=5  window=2026-10-24..2026-10-24
+AUDIT campaign=a8002abd-b29b-4ca9-a04b-02523254359a  emails=50  senders=6  window=2026-10-24..2026-10-24
  ✔ I1 at-most-once        0 sends audited, 0 duplicate sends, 0 duplicate message_ids
- ✔ I2 hourly cap          max 0/hr observed, cap 0 (within limits)
- ✔ I3 min gap             min observed 0.00s, required 0.00s
- ✔ I4 nothing lost        0 sent, 0 failed, 0 stuck (50 pending)
+ ✔ I2 hourly cap          max 6/hr observed, cap 200 (within limits)
+ ✔ I3 min gap             min observed 0.09s, required 0.02s
+ ✔ I4 nothing lost        0 sent, 35 failed, 0 stuck (15 pending)
  ✔ I5 never early         0 early send violations detected
  ✔ I6 overflow order      monotonic
  ✔ I7 stores agree        0 drift (missing Redis jobs for SCHEDULED rows)

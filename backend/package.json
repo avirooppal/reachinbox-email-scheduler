@@ -7,7 +7,7 @@
   "scripts": {
     "dev:api": "tsx watch src/server.ts",
     "dev:worker": "tsx watch src/worker.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"import('fs').then(f => f.cpSync('src/adapters/lua', 'dist/adapters/lua', {recursive: true}))\"",
     "migrate": "prisma db push",
     "migrate:dev": "prisma migrate dev",
     "seed": "tsx src/seed.ts",

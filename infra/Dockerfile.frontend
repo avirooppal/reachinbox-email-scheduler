@@ -1,0 +1,25 @@
+# ==============================================================================
+# Multi-stage Dockerfile for Outbox Frontend SPA and Edge Caddy Server
+# Compiles React + Vite SPA and serves via Caddy with automatic TLS
+# ==============================================================================
+
+FROM node:20-bookworm-slim AS builder
+WORKDIR /app
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+
+ENV VITE_API_URL=""
+RUN npm run build
+
+# ------------------------------------------------------------------------------
+# Production Edge Web Server (Caddy 2.8)
+# ------------------------------------------------------------------------------
+FROM caddy:2.8-alpine AS runner
+
+COPY --from=builder /app/dist /srv/frontend
+COPY infra/Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443

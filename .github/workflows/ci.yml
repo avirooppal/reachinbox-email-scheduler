@@ -1,0 +1,121 @@
+name: Continuous Integration & Production Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, Typecheck & Invariant Verification
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: email_scheduler
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          xpack.security.http.ssl.enabled: "false"
+          ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Node.js (LTS 20)
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+          npm --prefix backend ci
+          npm --prefix frontend ci
+
+      - name: Generate Prisma Client & Migrate Schema
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5434/email_scheduler?schema=public"
+        run: |
+          npm --prefix backend run migrate
+
+      - name: Typecheck Backend & Frontend
+        run: |
+          npm --prefix backend run build
+          npm --prefix frontend run build
+
+      - name: Frontend Component Unit Tests
+        run: |
+          npm --prefix frontend test
+
+      - name: Backend Invariants, Simulation & Chaos Verification
+        env:
+          NODE_ENV: test
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5434/email_scheduler?schema=public"
+          REDIS_URL: "redis://localhost:6379"
+          ELASTICSEARCH_URL: "http://localhost:9200"
+          JWT_SECRET: "test-secret-must-be-at-least-32-chars-long"
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          ENABLE_FAULT_INJECTION: "false"
+        run: |
+          npm run verify
+
+  deploy:
+    name: Optional Deploy to VPS (Main Branch)
+    needs: [verify]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Trigger Remote Deploy Script via Restricted SSH
+        if: env.DEPLOY_SSH_KEY != ''
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'deploy' }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$DEPLOY_HOST" "cd /opt/scheduler && git pull && bash infra/scripts/deploy.sh"
