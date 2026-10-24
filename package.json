@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "install:all": "npm --prefix backend install --include=dev && npm --prefix frontend install --include=dev",
-    "build": "npm run install:all && npm --prefix backend run migrate && npm --prefix backend run build && npm --prefix frontend run build",
+    "build": "npm run install:all && npm --prefix backend run migrate && npm --prefix backend run seed && npm --prefix backend run build && npm --prefix frontend run build",
     "start": "node backend/dist/server.js",
     "migrate": "npm --prefix backend run migrate",
     "seed": "npm --prefix backend run seed",

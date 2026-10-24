@@ -13,15 +13,19 @@ export class AuthService {
   /**
    * Generates Google OAuth authorization URL with anti-CSRF state token.
    */
-  static getGoogleAuthUrl(): { url: string; state: string } {
+  static getGoogleAuthUrl(redirectUri?: string): { url: string; state: string } {
+    const finalRedirectUri =
+      redirectUri ||
+      (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/auth/google/callback` : env.GOOGLE_REDIRECT_URI);
+
     const state = jwt.sign(
-      { nonce: crypto.randomBytes(16).toString("hex"), purpose: "google_oauth" },
+      { nonce: crypto.randomBytes(16).toString("hex"), purpose: "google_oauth", redirectUri: finalRedirectUri },
       env.JWT_SECRET,
       { expiresIn: "15m" }
     );
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID,
-      redirect_uri: env.GOOGLE_REDIRECT_URI,
+      redirect_uri: finalRedirectUri,
       response_type: "code",
       scope: "openid email profile",
       access_type: "offline",
@@ -37,12 +41,16 @@ export class AuthService {
   /**
    * Exchanges Google authorization code for user profile info.
    */
-  static async exchangeCodeForGoogleUser(code: string): Promise<{
+  static async exchangeCodeForGoogleUser(code: string, redirectUri?: string): Promise<{
     googleId: string;
     email: string;
     name: string;
     avatarUrl?: string;
   }> {
+    const finalRedirectUri =
+      redirectUri ||
+      (process.env.RENDER_EXTERNAL_URL ? `${process.env.RENDER_EXTERNAL_URL}/auth/google/callback` : env.GOOGLE_REDIRECT_URI);
+
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -50,7 +58,7 @@ export class AuthService {
         code,
         client_id: env.GOOGLE_CLIENT_ID,
         client_secret: env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: env.GOOGLE_REDIRECT_URI,
+        redirect_uri: finalRedirectUri,
         grant_type: "authorization_code"
       })
     });

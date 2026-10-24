@@ -139,11 +139,17 @@ const stateStore = new Set<string>();
  * Initiates Google OAuth Code Flow.
  */
 authRouter.get("/google", (req: Request, res: Response) => {
-  const { url, state } = AuthService.getGoogleAuthUrl();
+  const proto = req.get("x-forwarded-proto") || req.protocol;
+  const host = req.get("x-forwarded-host") || req.get("host");
+  const computedRedirectUri = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/auth/google/callback`
+    : `${proto}://${host}/auth/google/callback`;
+
+  const { url, state } = AuthService.getGoogleAuthUrl(computedRedirectUri);
   stateStore.add(state);
 
-  // Expire state after 10 minutes
-  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000);
+  // Expire state after 15 minutes
+  setTimeout(() => stateStore.delete(state), 15 * 60 * 1000);
 
   const isSecure = env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https";
 
@@ -151,7 +157,7 @@ authRouter.get("/google", (req: Request, res: Response) => {
     httpOnly: true,
     sameSite: "lax",
     secure: isSecure,
-    maxAge: 10 * 60 * 1000
+    maxAge: 15 * 60 * 1000
   });
 
   return res.redirect(url);
@@ -162,18 +168,26 @@ authRouter.get("/google", (req: Request, res: Response) => {
  */
 authRouter.get("/google/callback", async (req: Request, res: Response) => {
   try {
-    const { code, state } = req.query as { code?: string; state?: string };
+    const { code, state, error, error_description } = req.query as Record<string, string>;
     const savedState = req.cookies?.oauth_state;
 
+    if (error) {
+      req.log?.error({ error, error_description }, "Google OAuth callback error returned by Google");
+      return res.status(400).json({ error: `Google OAuth error: ${error}`, details: error_description });
+    }
+
     if (!code || !state) {
-      req.log?.warn("Google OAuth callback missing code or state");
+      req.log?.warn({ query: req.query }, "Google OAuth callback missing code or state");
       return res.status(400).json({ error: "Invalid OAuth state or missing code" });
     }
 
     let isValid = false;
+    let redirectUri: string | undefined;
+
     try {
-      jwt.verify(state, env.JWT_SECRET);
+      const decoded = jwt.verify(state, env.JWT_SECRET) as { redirectUri?: string };
       isValid = true;
+      redirectUri = decoded.redirectUri;
     } catch {
       if (stateStore.has(state) || (savedState && savedState === state)) {
         isValid = true;
@@ -188,7 +202,7 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
     stateStore.delete(state);
     res.clearCookie("oauth_state");
 
-    const profile = await AuthService.exchangeCodeForGoogleUser(code);
+    const profile = await AuthService.exchangeCodeForGoogleUser(code, redirectUri);
     const user = await AuthService.upsertGoogleUser(profile);
 
     const token = AuthService.signToken({
@@ -210,7 +224,8 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
     return res.redirect(`${redirectTarget}/scheduled`);
   } catch (err) {
     req.log?.error({ err }, "Google OAuth callback error");
-    return res.status(500).json({ error: "Failed to authenticate with Google" });
+    const errMsg = err instanceof Error ? err.message : "Failed to authenticate with Google";
+    return res.status(500).json({ error: errMsg });
   }
 });
 
