@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
+import path from "path";
+import fs from "fs";
 import crypto from "crypto";
 import helmet from "helmet";
 import cors from "cors";
@@ -143,6 +145,32 @@ app.get("/ready", async (req: Request, res: Response) => {
   });
 });
 
+// Serve frontend SPA in production if built dist exists
+const candidateDistPaths = [
+  path.resolve(process.cwd(), "frontend/dist"),
+  path.resolve(process.cwd(), "../frontend/dist"),
+  path.resolve(process.cwd(), "dist/frontend")
+];
+const frontendDist = candidateDistPaths.find((p) => fs.existsSync(p));
+
+if (frontendDist) {
+  logger.info({ frontendDist }, "Serving static frontend SPA");
+  app.use(express.static(frontendDist));
+  app.get("*", (req: Request, res: Response, next: NextFunction) => {
+    if (
+      req.path.startsWith("/api") ||
+      req.path.startsWith("/auth") ||
+      req.path.startsWith("/admin") ||
+      req.path === "/metrics" ||
+      req.path === "/health" ||
+      req.path === "/ready"
+    ) {
+      return next();
+    }
+    return res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
+
 // Global error handler
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   req.log.error({ err }, "Unhandled server error");
@@ -163,6 +191,16 @@ declare global {
 }
 
 if (process.env.NODE_ENV !== "test") {
+  if (process.env.RUN_WORKER === "true") {
+    logger.info("RUN_WORKER=true detected: starting inline email worker...");
+    import("./workers/email.worker.js").then(({ createEmailWorker }) => {
+      import("./queue/reconciler.js").then(({ reconcileQueue }) => {
+        reconcileQueue().catch((err) => logger.error({ err }, "Boot reconciler error"));
+        createEmailWorker(`inline-worker-${process.pid}`);
+      });
+    });
+  }
+
   const server = app.listen(env.PORT, () => {
     logger.info({ port: env.PORT, env: env.NODE_ENV }, "API Server listening");
   });

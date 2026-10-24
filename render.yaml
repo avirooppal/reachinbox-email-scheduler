@@ -1,0 +1,44 @@
+databases:
+  - name: scheduler-postgres
+    plan: free
+
+services:
+  - type: keyvalue
+    name: scheduler-redis
+    plan: free
+
+  - type: web
+    name: reachinbox-email-scheduler
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix backend run migrate && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: scheduler-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: scheduler-redis
+          property: connectionString
+      - key: ELASTICSEARCH_URL
+        value: http://127.0.0.1:9200
+      - key: RUN_WORKER
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: ENABLE_FAULT_INJECTION
+        value: "false"
+      - key: GOOGLE_CLIENT_ID
+        value: 997049960406-p2snvlv8sct3bfkj56qjcpanrvfqfc47.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        value: 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
+      - key: ADMIN_EMAILS
+        value: demo@example.com
