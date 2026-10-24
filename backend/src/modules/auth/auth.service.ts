@@ -14,7 +14,11 @@ export class AuthService {
    * Generates Google OAuth authorization URL with anti-CSRF state token.
    */
   static getGoogleAuthUrl(): { url: string; state: string } {
-    const state = crypto.randomBytes(32).toString("hex");
+    const state = jwt.sign(
+      { nonce: crypto.randomBytes(16).toString("hex"), purpose: "google_oauth" },
+      env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID,
       redirect_uri: env.GOOGLE_REDIRECT_URI,

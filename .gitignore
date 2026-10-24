@@ -7,5 +7,13 @@ graphify-out/
 client_secret*.json
 *.txt
 backend/uploads/
+cloudflared.exe
+*.exe
+infra/.env.production
+infra/.env.production.bak
 uploads/
+cloudflared.exe
+*.exe
+infra/.env.production
+infra/.env.production.bak
 

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { AuthService } from "./auth.service.js";
 import { requireAuth } from "./auth.middleware.js";
@@ -137,17 +138,19 @@ const stateStore = new Set<string>();
 /**
  * Initiates Google OAuth Code Flow.
  */
-authRouter.get("/google", (_req: Request, res: Response) => {
+authRouter.get("/google", (req: Request, res: Response) => {
   const { url, state } = AuthService.getGoogleAuthUrl();
   stateStore.add(state);
 
   // Expire state after 10 minutes
   setTimeout(() => stateStore.delete(state), 10 * 60 * 1000);
 
+  const isSecure = env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https";
+
   res.cookie("oauth_state", state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: env.NODE_ENV === "production",
+    secure: isSecure,
     maxAge: 10 * 60 * 1000
   });
 
@@ -162,7 +165,23 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
     const { code, state } = req.query as { code?: string; state?: string };
     const savedState = req.cookies?.oauth_state;
 
-    if (!code || !state || state !== savedState || !stateStore.has(state)) {
+    if (!code || !state) {
+      req.log?.warn("Google OAuth callback missing code or state");
+      return res.status(400).json({ error: "Invalid OAuth state or missing code" });
+    }
+
+    let isValid = false;
+    try {
+      jwt.verify(state, env.JWT_SECRET);
+      isValid = true;
+    } catch {
+      if (stateStore.has(state) || (savedState && savedState === state)) {
+        isValid = true;
+      }
+    }
+
+    if (!isValid) {
+      req.log?.warn({ state, savedState }, "Google OAuth callback invalid state");
       return res.status(400).json({ error: "Invalid OAuth state or missing code" });
     }
 
@@ -178,10 +197,12 @@ authRouter.get("/google/callback", async (req: Request, res: Response) => {
       name: user.name
     });
 
+    const isSecure = env.NODE_ENV === "production" || req.secure || req.headers["x-forwarded-proto"] === "https";
+
     res.cookie("auth_token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: env.NODE_ENV === "production",
+      secure: isSecure,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
