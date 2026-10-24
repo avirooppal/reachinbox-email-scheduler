@@ -325,10 +325,15 @@ Internet ──▶ DNS (A record) ──▶ VPS (Ubuntu 24.04 LTS)
 Outbound: Ethereal SMTP, Google OAuth, Slack OAuth + webhooks
 ```
 
-### Reviewer Access Strategy
+### Live Deployment & Reviewer Access
+- **Live URL:** `https://reachinbox-email-scheduler-n1js.onrender.com`
+- **Queue Dashboard (Bull Board):** `https://reachinbox-email-scheduler-n1js.onrender.com/admin/queues`
+- **Prometheus Metrics:** `https://reachinbox-email-scheduler-n1js.onrender.com/metrics`
+- **Health Check:** `https://reachinbox-email-scheduler-n1js.onrender.com/health`
+
 Reviewers can access the live system through multiple zero-friction pathways:
 1. **Seeded Demo Account (Immediate Access):**
-   - **URL:** `https://{{DOMAIN}}/login`
+   - **URL:** `https://reachinbox-email-scheduler-n1js.onrender.com/login`
    - **Email:** `demo@example.com`
    - **Password:** `DemoPassword123!`
 2. **Google OAuth 2.0:**
