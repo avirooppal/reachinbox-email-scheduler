@@ -22,9 +22,10 @@ slackRouter.get("/connect", (req: Request, res: Response) => {
   });
 
   const clientId = env.SLACK_CLIENT_ID || "mock_slack_client_id";
-  const redirectUri = encodeURIComponent(
-    env.SLACK_REDIRECT_URI || "http://localhost:3000/api/integrations/slack/callback"
-  );
+  const computedRedirectUri = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/integrations/slack/callback`
+    : env.SLACK_REDIRECT_URI || "http://localhost:3000/api/integrations/slack/callback";
+  const redirectUri = encodeURIComponent(computedRedirectUri);
   const scope = encodeURIComponent("incoming-webhook");
 
   const authorizeUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
@@ -67,11 +68,15 @@ slackRouter.get("/callback", async (req: Request, res: Response) => {
         });
       }
 
+      const computedRedirectUri = process.env.RENDER_EXTERNAL_URL
+        ? `${process.env.RENDER_EXTERNAL_URL}/api/integrations/slack/callback`
+        : env.SLACK_REDIRECT_URI;
+
       const params = new URLSearchParams({
         client_id: env.SLACK_CLIENT_ID,
         client_secret: env.SLACK_CLIENT_SECRET,
         code,
-        redirect_uri: env.SLACK_REDIRECT_URI
+        redirect_uri: computedRedirectUri
       });
 
       const tokenRes = await fetch("https://slack.com/api/oauth.v2.access", {
@@ -108,11 +113,8 @@ slackRouter.get("/callback", async (req: Request, res: Response) => {
       }
     });
 
-    return res.status(200).json({
-      message: "Slack integration connected successfully",
-      channel,
-      status: "CONNECTED"
-    });
+    const frontendBaseUrl = process.env.RENDER_EXTERNAL_URL || env.FRONTEND_URL;
+    return res.redirect(`${frontendBaseUrl}/scheduled?slack=connected`);
   } catch (err) {
     (req.log || logger).error({ err }, "Slack OAuth callback failed");
     return res.status(400).json({ error: "Invalid or expired state" });
