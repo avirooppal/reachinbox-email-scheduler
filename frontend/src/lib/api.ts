@@ -164,5 +164,23 @@ export const api = {
     },
 
     url: (id: string) => `/api/attachments/${id}`
+  },
+
+  slack: {
+    status: async () => {
+      return request<{
+        connected: boolean;
+        integration: { channel: string; teamName: string; connectedAt: string } | null;
+      }>("/api/integrations/slack");
+    },
+    getConnectUrl: async () => {
+      return request<{ authorizeUrl: string; state: string }>("/api/integrations/slack/connect");
+    },
+    disconnect: async () => {
+      return request<{ message: string }>("/api/integrations/slack", { method: "DELETE" });
+    },
+    testAlert: async () => {
+      return request<{ success: boolean; message: string }>("/api/integrations/slack/test", { method: "POST" });
+    }
   }
 };

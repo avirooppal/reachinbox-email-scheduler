@@ -205,12 +205,18 @@ declare global {
 
 if (process.env.NODE_ENV !== "test") {
   if (process.env.RUN_WORKER !== "false") {
-    logger.info("Starting inline email worker and queue reconciler...");
+    logger.info("Starting inline workers (email delivery, slack notifications, search indexing)...");
     import("./workers/email.worker.js").then(({ createEmailWorker }) => {
       import("./queue/reconciler.js").then(({ reconcileQueue }) => {
         reconcileQueue().catch((err) => logger.error({ err }, "Boot reconciler error"));
         createEmailWorker(`inline-worker-${process.pid}`);
       });
+    });
+    import("./queue/notification.worker.js").then(({ createNotificationWorker }) => {
+      createNotificationWorker(`inline-notif-${process.pid}`);
+    });
+    import("./queue/search-index.worker.js").then(({ createSearchIndexWorker }) => {
+      createSearchIndexWorker(`inline-search-${process.pid}`);
     });
   }
 

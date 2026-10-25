@@ -8,37 +8,10 @@ import { logger } from "../../config/logger.js";
 
 export const slackRouter = Router();
 
-slackRouter.use(requireAuth);
-
-/**
- * Initiate Slack OAuth connect flow.
- * GET /api/integrations/slack/connect
- */
-slackRouter.get("/connect", (req: Request, res: Response) => {
-  const userId = req.user!.id;
-  // Sign state token with user ID and 10m expiry to prevent CSRF
-  const state = jwt.sign({ userId, nonce: Math.random().toString(36) }, env.JWT_SECRET, {
-    expiresIn: "10m"
-  });
-
-  const clientId = env.SLACK_CLIENT_ID || "mock_slack_client_id";
-  const computedRedirectUri = process.env.RENDER_EXTERNAL_URL
-    ? `${process.env.RENDER_EXTERNAL_URL}/api/integrations/slack/callback`
-    : env.SLACK_REDIRECT_URI || "http://localhost:3000/api/integrations/slack/callback";
-  const redirectUri = encodeURIComponent(computedRedirectUri);
-  const scope = encodeURIComponent("incoming-webhook");
-
-  const authorizeUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
-
-  return res.status(200).json({
-    authorizeUrl,
-    state
-  });
-});
-
 /**
  * Slack OAuth callback endpoint.
  * Exchanges authorization code at oauth.v2.access, encrypts webhook, and marks CONNECTED.
+ * State token contains verified userId signed with JWT_SECRET.
  * GET /api/integrations/slack/callback?code=&state=
  */
 slackRouter.get("/callback", async (req: Request, res: Response) => {
@@ -113,12 +86,52 @@ slackRouter.get("/callback", async (req: Request, res: Response) => {
       }
     });
 
+    // Send immediate confirmation message to verified Slack channel
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `🚀 *ReachInbox Email Scheduler Connected!*\nHourly rate limit alerts will be posted here to #${channel}.`
+        })
+      });
+    } catch {}
+
     const frontendBaseUrl = process.env.RENDER_EXTERNAL_URL || env.FRONTEND_URL;
     return res.redirect(`${frontendBaseUrl}/scheduled?slack=connected`);
   } catch (err) {
     (req.log || logger).error({ err }, "Slack OAuth callback failed");
     return res.status(400).json({ error: "Invalid or expired state" });
   }
+});
+
+// Authenticate all remaining Slack routes
+slackRouter.use(requireAuth);
+
+/**
+ * Initiate Slack OAuth connect flow.
+ * GET /api/integrations/slack/connect
+ */
+slackRouter.get("/connect", (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  // Sign state token with user ID and 10m expiry to prevent CSRF
+  const state = jwt.sign({ userId, nonce: Math.random().toString(36) }, env.JWT_SECRET, {
+    expiresIn: "10m"
+  });
+
+  const clientId = env.SLACK_CLIENT_ID || "mock_slack_client_id";
+  const computedRedirectUri = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/integrations/slack/callback`
+    : env.SLACK_REDIRECT_URI || "http://localhost:3000/api/integrations/slack/callback";
+  const redirectUri = encodeURIComponent(computedRedirectUri);
+  const scope = encodeURIComponent("incoming-webhook");
+
+  const authorizeUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
+
+  return res.status(200).json({
+    authorizeUrl,
+    state
+  });
 });
 
 /**
@@ -154,4 +167,68 @@ slackRouter.delete("/", async (req: Request, res: Response) => {
   });
 
   return res.status(200).json({ message: "Slack integration disconnected" });
+});
+
+/**
+ * Dispatch test rate limit alert to verified Slack channel.
+ * POST /api/integrations/slack/test
+ */
+slackRouter.post("/test", async (req: Request, res: Response) => {
+  const integration = await prisma.slackIntegration.findUnique({
+    where: { userId: req.user!.id }
+  });
+
+  if (!integration || integration.status !== "CONNECTED" || !integration.webhookUrlEnc) {
+    return res.status(400).json({ error: "No connected Slack integration found. Connect Slack first." });
+  }
+
+  const { decrypt } = await import("../../utils/crypto.js");
+  const webhookUrl = decrypt(integration.webhookUrlEnc);
+
+  const payload = {
+    text: `⚠️ *Hourly Rate Limit Reached* for sender *Demo Sender (demo@ethereal.email)*`,
+    blocks: [
+      {
+        type: "header",
+        text: {
+          type: "plain_text",
+          text: "⚠️ Sender Hourly Limit Exceeded",
+          emoji: true
+        }
+      },
+      {
+        type: "section",
+        fields: [
+          { type: "mrkdwn", text: `*Sender:*\nDemo Sender (demo@ethereal.email)` },
+          { type: "mrkdwn", text: `*Hourly Quota:*\n10 emails/hour` },
+          { type: "mrkdwn", text: `*Observed Sends:*\n10 emails dispatched` },
+          { type: "mrkdwn", text: `*Next Available Slot:*\nRescheduled into next clock hour` }
+        ]
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `ReachInbox Email Scheduler • Verified live webhook alert at ${new Date().toLocaleTimeString()}`
+          }
+        ]
+      }
+    ]
+  };
+
+  const slackRes = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!slackRes.ok) {
+    return res.status(502).json({ error: "Slack rejected webhook payload" });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: `Test rate-limit alert sent to Slack #${integration.channel}`
+  });
 });
