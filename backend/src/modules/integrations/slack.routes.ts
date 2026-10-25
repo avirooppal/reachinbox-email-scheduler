@@ -128,6 +128,10 @@ slackRouter.get("/connect", (req: Request, res: Response) => {
 
   const authorizeUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${redirectUri}&state=${state}`;
 
+  if (req.query.redirect === "true" || req.headers.accept?.includes("text/html")) {
+    return res.redirect(authorizeUrl);
+  }
+
   return res.status(200).json({
     authorizeUrl,
     state

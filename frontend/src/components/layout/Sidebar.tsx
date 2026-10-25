@@ -174,70 +174,70 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, counts, onLogout }) => {
             </Link>
           </nav>
         </div>
-      </div>
 
-      {/* Integrations Footer Section */}
-      <div className="pt-4 border-t border-[#F0F0F0] flex flex-col gap-2">
-        <p className="px-1 text-[11px] font-bold text-[#9CA3AF] tracking-wider uppercase">
-          INTEGRATIONS
-        </p>
+        {/* Integrations Section (Placed directly under Core for high visibility) */}
+        <div className="mt-2 pt-3 border-t border-[#F0F1F2] flex flex-col gap-2">
+          <p className="px-3 text-[11px] font-bold text-[#9CA3AF] tracking-wider uppercase mb-1">
+            INTEGRATIONS
+          </p>
 
-        {slackState.connected ? (
-          <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span className="text-xs font-semibold text-[#0F172A] truncate flex items-center">
-                  <Hash className="w-3 h-3 text-[#64748B] mr-0.5 shrink-0" />
-                  {slackState.channel || "slack"}
-                </span>
+          {slackState.connected ? (
+            <div className="p-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-semibold text-[#0F172A] truncate flex items-center">
+                    <Hash className="w-3 h-3 text-[#64748B] mr-0.5 shrink-0" />
+                    {slackState.channel || "slack"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="text-[10px] text-[#94A3B8] hover:text-red-500 transition-colors"
+                  title="Disconnect"
+                >
+                  Disconnect
+                </button>
               </div>
+
               <button
                 type="button"
-                onClick={handleDisconnect}
-                className="text-[10px] text-[#94A3B8] hover:text-red-500 transition-colors"
-                title="Disconnect"
+                onClick={handleTestAlert}
+                disabled={slackState.testing}
+                className="w-full py-1.5 px-2 bg-white hover:bg-emerald-50 border border-[#CBD5E1] hover:border-emerald-500 rounded-lg text-xs font-medium text-[#334155] hover:text-emerald-700 flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-60"
               >
-                Disconnect
+                {slackState.testing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                    <span>Sending...</span>
+                  </>
+                ) : slackState.testSuccess ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600" />
+                    <span className="text-emerald-700">Alert Sent!</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-3 h-3 text-amber-500" />
+                    <span>Send Test Alert</span>
+                  </>
+                )}
               </button>
             </div>
-
+          ) : (
             <button
               type="button"
-              onClick={handleTestAlert}
-              disabled={slackState.testing}
-              className="w-full py-1.5 px-2 bg-white hover:bg-emerald-50 border border-[#CBD5E1] hover:border-emerald-500 rounded-lg text-xs font-medium text-[#334155] hover:text-emerald-700 flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-60"
+              onClick={handleConnectSlack}
+              className="w-full py-2 px-3 rounded-xl border border-dashed border-[#CBD5E1] hover:border-[#4A154B] bg-[#FAFAFA] hover:bg-[#F4EDE4] text-xs font-medium text-[#475569] hover:text-[#4A154B] flex items-center justify-center gap-2 transition-all active:scale-95"
             >
-              {slackState.testing ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
-                  <span>Sending...</span>
-                </>
-              ) : slackState.testSuccess ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-600" />
-                  <span className="text-emerald-700">Alert Sent!</span>
-                </>
-              ) : (
-                <>
-                  <Bell className="w-3 h-3 text-amber-500" />
-                  <span>Send Test Alert</span>
-                </>
-              )}
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 1 1 2 2v-2H7zm0-1a2 2 0 1 1-2-2 2 2 0 0 1 2 2zm1-7a2 2 0 1 1 2-2v2H8zm-1 1a2 2 0 1 1-2-2h2v2zm0 1a2 2 0 1 1 2 2 2 2 0 0 1-2-2zm7-1a2 2 0 1 1 2 2h-2V8zm-1 0a2 2 0 1 1-2-2v2h2zm0 1a2 2 0 1 1 2 2 2 2 0 0 1-2-2zm-1 7a2 2 0 1 1-2 2v-2h2zm1-1a2 2 0 1 1 2 2h-2v-2zm0-1a2 2 0 1 1-2-2 2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Connect Slack</span>
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleConnectSlack}
-            className="w-full py-2 px-3 rounded-xl border border-dashed border-[#CBD5E1] hover:border-[#4A154B] bg-[#FAFAFA] hover:bg-[#F4EDE4] text-xs font-medium text-[#475569] hover:text-[#4A154B] flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 1 1 2 2v-2H7zm0-1a2 2 0 1 1-2-2 2 2 0 0 1 2 2zm1-7a2 2 0 1 1 2-2v2H8zm-1 1a2 2 0 1 1-2-2h2v2zm0 1a2 2 0 1 1 2 2 2 2 0 0 1-2-2zm7-1a2 2 0 1 1 2 2h-2V8zm-1 0a2 2 0 1 1-2-2v2h2zm0 1a2 2 0 1 1 2 2 2 2 0 0 1-2-2zm-1 7a2 2 0 1 1-2 2v-2h2zm1-1a2 2 0 1 1 2 2h-2v-2zm0-1a2 2 0 1 1-2-2 2 2 0 0 1 2 2z"/>
-            </svg>
-            <span>Connect Slack</span>
-          </button>
-        )}
+          )}
+        </div>
       </div>
     </aside>
   );
